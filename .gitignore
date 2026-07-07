@@ -1,0 +1,7 @@
+.build/
+.swiftpm/
+.DS_Store
+*.app/
+.playwright-cli/
+dist/
+*.xcuserstate
