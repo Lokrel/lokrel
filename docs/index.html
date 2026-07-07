@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>lokrel · 3D Print Asset Manager</title>
+  <meta name="description" content="lokrel is a macOS library manager for 3D printing model files, previews, metadata, tags, notes, and source links.">
+  <meta property="og:title" content="lokrel">
+  <meta property="og:description" content="A quiet macOS library for 3D printing model files.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="assets/lokrel-icon.png">
+  <link rel="icon" href="assets/lokrel-icon.png">
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #181d22;
+      --muted: #58616c;
+      --line: #d8dee4;
+      --panel: #f7f8fa;
+      --paper: #ffffff;
+      --green: #2e7d5b;
+      --blue: #2367a8;
+      --amber: #a66321;
+      --shadow: 0 18px 50px rgba(21, 32, 43, 0.16);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .site-shell {
+      min-height: 100vh;
+    }
+
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      height: 68px;
+      padding: 0 clamp(18px, 5vw, 72px);
+      border-bottom: 1px solid rgba(216, 222, 228, 0.82);
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(18px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      font-weight: 720;
+      font-size: 18px;
+    }
+
+    .brand img {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .nav-links a {
+      text-decoration: none;
+    }
+
+    .hero {
+      min-height: calc(100vh - 68px);
+      display: grid;
+      align-items: center;
+      padding: clamp(42px, 8vh, 82px) clamp(18px, 5vw, 72px);
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.9) 46%, rgba(255, 255, 255, 0.2) 100%),
+        url("assets/lokrel-icon.png") right 8vw center / min(42vw, 520px) no-repeat,
+        #f3f6f5;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .hero-inner {
+      width: min(720px, 100%);
+    }
+
+    .eyebrow {
+      color: var(--green);
+      font-size: 14px;
+      font-weight: 760;
+      margin: 0 0 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(58px, 10vw, 116px);
+      line-height: 0.96;
+      font-weight: 780;
+    }
+
+    .lead {
+      max-width: 620px;
+      margin: 24px 0 0;
+      color: #29323a;
+      font-size: clamp(19px, 2.5vw, 28px);
+      line-height: 1.26;
+    }
+
+    .lead-cn {
+      max-width: 620px;
+      margin: 16px 0 0;
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 32px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 0 18px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 700;
+      background: var(--paper);
+    }
+
+    .button.primary {
+      background: var(--ink);
+      border-color: var(--ink);
+      color: white;
+    }
+
+    .button.secondary {
+      color: var(--ink);
+    }
+
+    .release-note {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    main {
+      background: var(--paper);
+    }
+
+    .section {
+      padding: 70px clamp(18px, 5vw, 72px);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-header {
+      max-width: 840px;
+      margin-bottom: 32px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: clamp(32px, 5vw, 54px);
+      line-height: 1.04;
+      font-weight: 760;
+    }
+
+    .section-header p {
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 18px;
+      max-width: 720px;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .feature {
+      min-height: 178px;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+    }
+
+    .feature strong {
+      display: block;
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+
+    .feature p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr) 320px;
+      border: 1px solid #cfd8dc;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      background: #fbfcfd;
+    }
+
+    .sidebar,
+    .inspector,
+    .browser {
+      min-height: 430px;
+    }
+
+    .sidebar {
+      border-right: 1px solid var(--line);
+      background: #eef3f1;
+      padding: 18px;
+    }
+
+    .browser {
+      padding: 18px;
+      background: #fbfcfd;
+    }
+
+    .inspector {
+      border-left: 1px solid var(--line);
+      background: #ffffff;
+      padding: 18px;
+    }
+
+    .ui-title {
+      font-size: 13px;
+      font-weight: 760;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .folder,
+    .row,
+    .metadata-line {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 34px;
+      border-bottom: 1px solid rgba(216, 222, 228, 0.7);
+      color: #29323a;
+      font-size: 14px;
+    }
+
+    .folder::before,
+    .row::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      background: var(--green);
+      flex: 0 0 auto;
+    }
+
+    .model-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .model-tile {
+      min-height: 132px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .preview-bar {
+      height: 52px;
+      border-radius: 6px;
+      background:
+        linear-gradient(135deg, rgba(46, 125, 91, 0.2), rgba(35, 103, 168, 0.16)),
+        #eef4f2;
+      border: 1px solid rgba(46, 125, 91, 0.18);
+    }
+
+    .model-name {
+      font-size: 13px;
+      font-weight: 720;
+      color: #29323a;
+      margin-top: 10px;
+      line-height: 1.25;
+    }
+
+    .model-meta {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .metadata-line {
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .metadata-line span:first-child {
+      color: var(--muted);
+    }
+
+    .download-band {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 24px;
+      align-items: center;
+      background: #172026;
+      color: white;
+    }
+
+    .download-band p {
+      color: rgba(255, 255, 255, 0.74);
+      margin: 10px 0 0;
+      max-width: 680px;
+    }
+
+    .download-band .button {
+      border-color: rgba(255, 255, 255, 0.28);
+      background: white;
+      color: #172026;
+      white-space: nowrap;
+    }
+
+    footer {
+      padding: 30px clamp(18px, 5vw, 72px);
+      color: var(--muted);
+      font-size: 14px;
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 980px) {
+      .hero {
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(255, 255, 255, 0.94) 100%),
+          url("assets/lokrel-icon.png") right 20px top 30px / 180px no-repeat,
+          #f3f6f5;
+      }
+
+      .feature-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar,
+      .inspector {
+        min-height: auto;
+        border: 0;
+      }
+
+      .sidebar {
+        border-bottom: 1px solid var(--line);
+      }
+
+      .inspector {
+        border-top: 1px solid var(--line);
+      }
+
+      .download-band {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .nav {
+        height: auto;
+        min-height: 64px;
+        align-items: flex-start;
+        flex-direction: column;
+        justify-content: center;
+        padding-top: 12px;
+        padding-bottom: 12px;
+      }
+
+      .nav-links {
+        width: 100%;
+        overflow-x: auto;
+        padding-bottom: 2px;
+      }
+
+      .hero {
+        min-height: 620px;
+        padding-top: 56px;
+        align-items: start;
+      }
+
+      .feature-grid,
+      .model-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .section {
+        padding-top: 52px;
+        padding-bottom: 52px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="site-shell">
+    <header class="nav">
+      <a class="brand" href="#top" aria-label="lokrel home">
+        <img src="assets/lokrel-icon.png" alt="">
+        <span>lokrel</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary navigation">
+        <a href="#features">Features</a>
+        <a href="#interface">Interface</a>
+        <a href="#download">Download</a>
+        <a href="https://github.com/Lokrel/lokrel">GitHub</a>
+      </nav>
+    </header>
+
+    <section class="hero" id="top">
+      <div class="hero-inner">
+        <p class="eyebrow">macOS · 3MF · STL · OBJ · STEP</p>
+        <h1>lokrel</h1>
+        <p class="lead">A quiet macOS library for 3D printing models, previews, metadata, source links, tags, and notes.</p>
+        <p class="lead-cn">用照片管理软件的方式整理 3D 打印模型。把同一模型的 3MF、STL、STEP、OBJ、图片、PDF 和说明文件合并成一个清晰项目。</p>
+        <div class="actions">
+          <a class="button primary" href="https://github.com/Lokrel/lokrel/releases/latest">Download for macOS</a>
+          <a class="button secondary" href="https://github.com/Lokrel/lokrel">View Source</a>
+        </div>
+        <p class="release-note">macOS 14 or later. Public releases are distributed through GitHub while signing and notarization are being finalized.</p>
+      </div>
+    </section>
+
+    <main>
+      <section class="section" id="features">
+        <div class="section-header">
+          <h2>Model libraries without spreadsheet energy.</h2>
+          <p>lokrel keeps model files close to their context: rendered previews, embedded 3MF metadata, source links, notes, favorites, and tags.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature">
+            <strong>Project grouping</strong>
+            <p>Matching model, image, PDF, text, and README files in the same folder are shown as one project.</p>
+          </article>
+          <article class="feature">
+            <strong>Preview first</strong>
+            <p>Embedded 3MF thumbnails are used when available. STL and OBJ files can render card previews and interactive views.</p>
+          </article>
+          <article class="feature">
+            <strong>Clean metadata</strong>
+            <p>Author, license, descriptions, and MakerWorld source links are extracted from messy embedded 3MF metadata.</p>
+          </article>
+          <article class="feature">
+            <strong>Local only</strong>
+            <p>Original model files stay untouched. Notes, tags, favorites, and cover choices live in a local database.</p>
+          </article>
+          <article class="feature">
+            <strong>Finder-friendly</strong>
+            <p>Open source files in their default apps or reveal the original folder when you need to rename or reorganize files.</p>
+          </article>
+          <article class="feature">
+            <strong>Fast search</strong>
+            <p>Find projects by display name, author, tags, or associated filenames as your library grows.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="interface">
+        <div class="section-header">
+          <h2>Built around the way model folders actually look.</h2>
+          <p>A three-column workspace keeps folder structure, model cards, and inspector details visible at the same time.</p>
+        </div>
+        <div class="workspace" aria-label="lokrel interface preview">
+          <aside class="sidebar">
+            <div class="ui-title">Folders</div>
+            <div class="folder">MakerWorld</div>
+            <div class="folder">Printer parts</div>
+            <div class="folder">Gridfinity</div>
+            <div class="folder">Archived prints</div>
+          </aside>
+          <section class="browser">
+            <div class="ui-title">Library</div>
+            <div class="model-grid">
+              <div class="model-tile">
+                <div class="preview-bar"></div>
+                <div>
+                  <div class="model-name">Planetary Gear</div>
+                  <div class="model-meta">3MF · STL · JPG</div>
+                </div>
+              </div>
+              <div class="model-tile">
+                <div class="preview-bar"></div>
+                <div>
+                  <div class="model-name">Antenna Holder</div>
+                  <div class="model-meta">STEP · PDF</div>
+                </div>
+              </div>
+              <div class="model-tile">
+                <div class="preview-bar"></div>
+                <div>
+                  <div class="model-name">Cable Clip Set</div>
+                  <div class="model-meta">OBJ · PNG</div>
+                </div>
+              </div>
+            </div>
+          </section>
+          <aside class="inspector">
+            <div class="ui-title">Inspector</div>
+            <div class="metadata-line"><span>Name</span><strong>Planetary Gear</strong></div>
+            <div class="metadata-line"><span>Author</span><strong>G-Man Projects</strong></div>
+            <div class="metadata-line"><span>License</span><strong>Standard Digital File</strong></div>
+            <div class="metadata-line"><span>Source</span><strong>MakerWorld</strong></div>
+            <div class="metadata-line"><span>Tags</span><strong>gear · test print</strong></div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="section download-band" id="download">
+        <div>
+          <h2>Ready for a cleaner model folder.</h2>
+          <p>Download the current public build from GitHub, or follow the repository for signing, notarization, and release updates.</p>
+        </div>
+        <a class="button" href="https://github.com/Lokrel/lokrel/releases/latest">Open latest release</a>
+      </section>
+    </main>
+
+    <footer>
+      <span>© 2026 Lokrel</span>
+      <span><a href="https://github.com/Lokrel/lokrel">GitHub</a> · <a href="https://github.com/Lokrel/lokrel/issues">Issues</a></span>
+    </footer>
+  </div>
+</body>
+</html>
