@@ -104,13 +104,30 @@ struct ExtractedModelMetadata: Hashable, Sendable {
     var license: String? { value(named: "LicenseTerms", "License") }
     var description: String? { value(named: "Description", "dc:description") }
     var sourceURL: String? {
-        entries.lazy.compactMap { entry -> String? in
+        let directURL = entries.lazy.compactMap { entry -> String? in
             guard ["url", "source", "origin", "download"].contains(where: {
                 entry.name.localizedCaseInsensitiveContains($0)
-            }), let url = URL(string: entry.value),
-                  ["http", "https"].contains(url.scheme?.lowercased() ?? "") else { return nil }
-            return url.absoluteString
+            }) else { return nil }
+            return metadataURLs(in: entry.value).first
         }.first
+        if let directURL { return directURL }
+
+        let makerWorldURL = entries.lazy.compactMap { entry -> String? in
+            guard ["DesignModelId", "MakerWorldModelId", "ModelId"].contains(where: {
+                entry.name.caseInsensitiveCompare($0) == .orderedSame
+            }) else { return nil }
+            return makerWorldModelURL(from: entry.value)
+        }.first
+        if let makerWorldURL { return makerWorldURL }
+
+        return entries.lazy
+            .filter { entry in
+                ["Description", "dc:description"].contains {
+                    entry.name.caseInsensitiveCompare($0) == .orderedSame
+                }
+            }
+            .flatMap { metadataURLs(in: $0.value) }
+            .first(where: isUsefulSourceURL)
     }
 }
 

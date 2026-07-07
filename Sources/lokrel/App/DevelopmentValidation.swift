@@ -70,6 +70,24 @@ enum DevelopmentValidation {
         let metadata = try ThreeMFMetadataService.extract(fileURL: threeMFURL)
         try require(metadata.designer == "Sample Designer", "3MF designer metadata was not extracted")
         try require(metadata.title == "Sample Holder", "3MF title metadata was not extracted")
+        try require(
+            metadata.description == "Pipeline - Heavy Planetary Gear\nBlade: https://makerworld.com/en/models/760893",
+            "HTML metadata description was not cleaned"
+        )
+        try require(
+            metadata.sourceURL == "https://makerworld.com/en/models/614749",
+            "MakerWorld source URL was not inferred"
+        )
+        let linkedDescription = ExtractedModelMetadata(entries: [
+            MetadataEntry(
+                name: "Description",
+                value: sanitizedMetadataText("&lt;a href=&amp;#34;https://makerworld.com/en/models/760893&amp;#34;&gt;Blade&lt;/a&gt;")
+            )
+        ])
+        try require(
+            linkedDescription.sourceURL == "https://makerworld.com/en/models/760893",
+            "Description link URL was not inferred"
+        )
 
         let thumbnailPath = try ThumbnailService.extractEmbeddedThumbnail(
             sourceURL: threeMFURL,
@@ -136,6 +154,8 @@ enum DevelopmentValidation {
           <metadata name="Title">Sample Holder</metadata>
           <metadata name="Designer">Sample Designer</metadata>
           <metadata name="LicenseTerms">CC BY 4.0</metadata>
+          <metadata name="DesignModelId">614749</metadata>
+          <metadata name="Description">&amp;lt;h3&amp;gt;Pipeline - Heavy Planetary Gear&amp;lt;/h3&amp;gt;&amp;lt;p&amp;gt;Blade: &amp;lt;a target=&amp;amp;#34;_blank&amp;amp;#34; href=&amp;amp;#34;https://makerworld.com/en/models/760893&amp;amp;#34; rel=&amp;amp;#34;nofollow noopener&amp;amp;#34;&amp;gt;https://makerworld.com/en/models/760893&amp;lt;/a&amp;gt;&amp;lt;/p&amp;gt;</metadata>
           <resources/>
           <build/>
         </model>

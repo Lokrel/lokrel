@@ -126,7 +126,7 @@ private final class MetadataXMLParserDelegate: NSObject, XMLParserDelegate {
 
     private func append(name: String, value: String) {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedValue = sanitizedMetadataText(value)
         guard !trimmedName.isEmpty, !trimmedValue.isEmpty else { return }
         entries.append(MetadataEntry(name: trimmedName, value: trimmedValue))
     }

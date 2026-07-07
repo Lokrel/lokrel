@@ -1,4 +1,4 @@
-# lokrel V1.1.1
+# lokrel V1.1.2
 
 **3D Print Asset Manager · 3D 打印模型资源管理器**
 
@@ -97,3 +97,31 @@ Model files: `3MF`, `STL`, `STEP/STP`, `OBJ`, `F3D`, `IGES/IGS`
 Related files: `JPG/JPEG`, `PNG`, `WEBP`, `PDF`, `MD`, `TXT`
 
 lokrel is an asset manager. It does not slice, print, or edit models.
+
+---
+
+## 发布打包
+
+`Scripts/package-release.sh` 会生成 ZIP 和 DMG。默认使用本地临时签名，适合开发测试。
+
+正式发布前，先准备 Developer ID 和 notarization 凭据：
+
+```bash
+xcrun notarytool store-credentials lokrel-notary --apple-id APPLE_ID --team-id TEAM_ID
+export LOKREL_DEVELOPER_ID_APPLICATION="Developer ID Application: Your Name (TEAMID)"
+export LOKREL_NOTARY_PROFILE="lokrel-notary"
+Scripts/package-release.sh
+```
+
+## Release Packaging
+
+`Scripts/package-release.sh` creates both ZIP and DMG artifacts. Without release credentials, it uses ad-hoc signing for local testing.
+
+For public releases, configure Developer ID signing and notarization first:
+
+```bash
+xcrun notarytool store-credentials lokrel-notary --apple-id APPLE_ID --team-id TEAM_ID
+export LOKREL_DEVELOPER_ID_APPLICATION="Developer ID Application: Your Name (TEAMID)"
+export LOKREL_NOTARY_PROFILE="lokrel-notary"
+Scripts/package-release.sh
+```
