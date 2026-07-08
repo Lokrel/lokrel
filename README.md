@@ -21,6 +21,12 @@ lokrel organizes 3D-printing models like a photo library. A model and its relate
 
 ## Download / 下载
 
+### System Requirements / 系统需求
+
+- macOS 14 Sonoma or later / macOS 14 Sonoma 或更新版本
+- Apple Silicon Mac only (ARM64: M1/M2/M3/M4 or later) / 仅支持 Apple 芯片 Mac（ARM64：M1/M2/M3/M4 或更新）
+- Intel Macs are not currently supported / 暂不支持 Intel Mac
+
 ### macOS (Apple Silicon) / macOS（Apple 芯片）
 
 - 📦 **GitHub Releases (Recommended) / GitHub Releases（推荐）**  
