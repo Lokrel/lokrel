@@ -1,10 +1,36 @@
-# lokrel V1.1.2
+<div align="center">
+
+# Lokrel
+
+**A native macOS asset manager for local 3D printing model libraries.**  
+**本地 3D 打印模型库的原生 macOS 资源管理器。**
+
+Current version / 当前版本: `1.1.2`
+
+[Download / 下载](#download--下载) · [Documentation / 文档](https://lokrel.github.io/lokrel/) · [Donate / 捐赠](#donate--捐赠)
+
+</div>
 
 **3D Print Asset Manager · 3D 打印模型资源管理器**
 
 lokrel 用照片管理软件的方式整理 3D 打印模型。一个模型以及它的 3MF、STL、STEP、图片、PDF 和 README 会尽可能合并成一个项目，而不是散落成许多独立文件。
 
 lokrel organizes 3D-printing models like a photo library. A model and its related 3MF, STL, STEP, image, PDF, and README files are presented as one project whenever possible.
+
+---
+
+## Download / 下载
+
+### macOS (Apple Silicon) / macOS（Apple 芯片）
+
+- 📦 **GitHub Releases (Recommended) / GitHub Releases（推荐）**  
+  https://github.com/Lokrel/lokrel/releases
+
+### 百度网盘下载 / Baidu Netdisk Download
+
+- ☁️ **Baidu Netdisk / 百度网盘**  
+  https://pan.baidu.com/s/144ne-4VZO2kAt4ABlNvDbA  
+  Extraction Code / 提取码: `0t7e`
 
 ---
 
@@ -97,6 +123,13 @@ Model files: `3MF`, `STL`, `STEP/STP`, `OBJ`, `F3D`, `IGES/IGS`
 Related files: `JPG/JPEG`, `PNG`, `WEBP`, `PDF`, `MD`, `TXT`
 
 lokrel is an asset manager. It does not slice, print, or edit models.
+
+---
+
+## Donate / 捐赠
+
+Donation options are not configured yet.  
+捐赠方式暂未配置。
 
 ---
 
