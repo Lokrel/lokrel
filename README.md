@@ -102,26 +102,24 @@ lokrel is an asset manager. It does not slice, print, or edit models.
 
 ## 发布打包
 
-`Scripts/package-release.sh` 会生成 ZIP 和 DMG。默认使用本地临时签名，适合开发测试。
-
-正式发布前，先准备 Developer ID 和 notarization 凭据：
+`Scripts/release.sh` 会生成 `dist/archive/` 下的 `.app` archive，使用 Developer ID 签名并开启 Hardened Runtime，然后生成、签名、notarize、staple DMG。所有 Apple 凭据都从环境变量读取，不写入仓库。
 
 ```bash
-xcrun notarytool store-credentials lokrel-notary --apple-id APPLE_ID --team-id TEAM_ID
 export LOKREL_DEVELOPER_ID_APPLICATION="Developer ID Application: Your Name (TEAMID)"
-export LOKREL_NOTARY_PROFILE="lokrel-notary"
-Scripts/package-release.sh
+export LOKREL_NOTARY_APPLE_ID="you@example.com"
+export LOKREL_NOTARY_TEAM_ID="TEAMID"
+export LOKREL_NOTARY_PASSWORD="xxxx-xxxx-xxxx-xxxx"
+Scripts/release.sh
 ```
 
 ## Release Packaging
 
-`Scripts/package-release.sh` creates both ZIP and DMG artifacts. Without release credentials, it uses ad-hoc signing for local testing.
-
-For public releases, configure Developer ID signing and notarization first:
+`Scripts/release.sh` creates an archived `.app` under `dist/archive/`, signs it with Developer ID and Hardened Runtime, then creates, signs, notarizes, and staples the DMG. All Apple credentials are read from environment variables and are not stored in the repository.
 
 ```bash
-xcrun notarytool store-credentials lokrel-notary --apple-id APPLE_ID --team-id TEAM_ID
 export LOKREL_DEVELOPER_ID_APPLICATION="Developer ID Application: Your Name (TEAMID)"
-export LOKREL_NOTARY_PROFILE="lokrel-notary"
-Scripts/package-release.sh
+export LOKREL_NOTARY_APPLE_ID="you@example.com"
+export LOKREL_NOTARY_TEAM_ID="TEAMID"
+export LOKREL_NOTARY_PASSWORD="xxxx-xxxx-xxxx-xxxx"
+Scripts/release.sh
 ```
