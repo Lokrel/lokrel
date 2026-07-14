@@ -7,8 +7,7 @@ DIST="$ROOT/dist"
 ENTITLEMENTS="$ROOT/Scripts/lokrel.entitlements"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$ROOT/Scripts/Info.plist")"
 BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$ROOT/Scripts/Info.plist")"
-ARCH="$(uname -m)"
-NAME="lokrel-$VERSION-macOS-$ARCH"
+NAME="Lokrel-$VERSION-macOS-Universal"
 ARCHIVE_DIR="$DIST/archive/$NAME"
 ARCHIVE_APP="$ARCHIVE_DIR/lokrel.app"
 DMG="$DIST/$NAME.dmg"
@@ -22,9 +21,11 @@ require_env() {
 }
 
 require_env LOKREL_DEVELOPER_ID_APPLICATION
-require_env LOKREL_NOTARY_APPLE_ID
-require_env LOKREL_NOTARY_TEAM_ID
-require_env LOKREL_NOTARY_PASSWORD
+if [[ -z "${LOKREL_NOTARY_KEYCHAIN_PROFILE:-}" ]]; then
+    require_env LOKREL_NOTARY_APPLE_ID
+    require_env LOKREL_NOTARY_TEAM_ID
+    require_env LOKREL_NOTARY_PASSWORD
+fi
 
 if [[ "$BUNDLE_ID" != "com.lokrel.app" ]]; then
     echo "Unexpected CFBundleIdentifier: $BUNDLE_ID" >&2
@@ -70,16 +71,24 @@ hdiutil create -volname "lokrel" -srcfolder "$DMG_ROOT" -ov -format UDZO "$DMG"
 codesign --force --timestamp --sign "$LOKREL_DEVELOPER_ID_APPLICATION" "$DMG"
 codesign --verify --verbose=2 "$DMG"
 
-xcrun notarytool submit "$DMG" \
-    --apple-id "$LOKREL_NOTARY_APPLE_ID" \
-    --team-id "$LOKREL_NOTARY_TEAM_ID" \
-    --password "$LOKREL_NOTARY_PASSWORD" \
-    --wait
+if [[ -n "${LOKREL_NOTARY_KEYCHAIN_PROFILE:-}" ]]; then
+    xcrun notarytool submit "$DMG" \
+        --keychain-profile "$LOKREL_NOTARY_KEYCHAIN_PROFILE" \
+        --wait
+else
+    xcrun notarytool submit "$DMG" \
+        --apple-id "$LOKREL_NOTARY_APPLE_ID" \
+        --team-id "$LOKREL_NOTARY_TEAM_ID" \
+        --password "$LOKREL_NOTARY_PASSWORD" \
+        --wait
+fi
 xcrun stapler staple "$DMG"
 xcrun stapler validate "$DMG"
 spctl -a -t open --context context:primary-signature -vv "$DMG"
 
 shasum -a 256 "$DMG" | tee "$DMG.sha256"
+"$ROOT/Scripts/generate-appcast.sh" "$DMG"
 
 echo "Archived $ARCHIVE_APP"
 echo "Packaged $DMG"
+echo "Updated $ROOT/docs/appcast.xml"

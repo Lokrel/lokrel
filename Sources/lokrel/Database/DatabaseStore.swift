@@ -52,16 +52,16 @@ final class DatabaseStore: @unchecked Sendable {
                 throw DatabaseError(message: "Could not create library")
             }
 
+            try db.execute(sql: """
+                DELETE FROM modelFile
+                WHERE projectID IN (
+                    SELECT id FROM modelProject WHERE libraryID = ? AND missing = 0
+                )
+                """, arguments: [libraryID])
             try db.execute(
                 sql: "UPDATE modelProject SET missing = 1 WHERE libraryID = ?",
                 arguments: [libraryID]
             )
-            try db.execute(sql: """
-                DELETE FROM modelFile
-                WHERE projectID IN (
-                    SELECT id FROM modelProject WHERE libraryID = ?
-                )
-                """, arguments: [libraryID])
 
             for scannedProject in result.projects {
                 let projectID = try String.fetchOne(db, sql: """
@@ -69,11 +69,16 @@ final class DatabaseStore: @unchecked Sendable {
                     WHERE libraryID = ? AND groupKey = ?
                     """, arguments: [libraryID, scannedProject.groupKey]) ?? UUID().uuidString
 
+                try db.execute(
+                    sql: "DELETE FROM modelFile WHERE projectID = ?",
+                    arguments: [projectID]
+                )
+
                 try db.execute(sql: """
                     INSERT INTO modelProject (
                         id, libraryID, groupKey, name, directoryPath,
-                        createdAt, modifiedAt, size, missing
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+                        createdAt, modifiedAt, importedAt, size, missing
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
                     ON CONFLICT(id) DO UPDATE SET
                         groupKey = excluded.groupKey,
                         name = excluded.name,
@@ -95,6 +100,7 @@ final class DatabaseStore: @unchecked Sendable {
                         scannedProject.directoryPath,
                         scannedProject.createdAt,
                         scannedProject.modifiedAt,
+                        now,
                         scannedProject.size
                     ])
 
@@ -131,7 +137,7 @@ final class DatabaseStore: @unchecked Sendable {
     func projects(libraryID: Int64) throws -> [ModelProject] {
         try databaseQueue.read { db in
             let projectRows = try Row.fetchAll(db, sql: """
-                SELECT id, name, directoryPath, createdAt, modifiedAt, size,
+                SELECT id, name, directoryPath, createdAt, modifiedAt, importedAt, size,
                        favorite, note, customName, author, sourceURL, license,
                        modelDescription, coverOverridePath, thumbnailPath
                 FROM modelProject
@@ -154,7 +160,7 @@ final class DatabaseStore: @unchecked Sendable {
                 JOIN tag t ON t.id = mt.tagID
                 JOIN modelProject p ON p.id = mt.projectID
                 WHERE p.libraryID = ? AND p.missing = 0
-                ORDER BY t.name COLLATE NOCASE
+                ORDER BY t.sortOrder, t.id
                 """, arguments: [libraryID])
 
             var filesByProject: [String: [ModelFile]] = [:]
@@ -186,6 +192,7 @@ final class DatabaseStore: @unchecked Sendable {
                     directoryPath: row["directoryPath"],
                     createdAt: row["createdAt"],
                     modifiedAt: row["modifiedAt"],
+                    importedAt: row["importedAt"],
                     size: row["size"],
                     favorite: row["favorite"],
                     note: row["note"],
@@ -203,16 +210,13 @@ final class DatabaseStore: @unchecked Sendable {
         }
     }
 
-    func allTags(libraryID: Int64) throws -> [String] {
+    func allTags(libraryID _: Int64) throws -> [String] {
         try databaseQueue.read { db in
             try String.fetchAll(db, sql: """
-                SELECT DISTINCT t.name
-                FROM tag t
-                JOIN modelTag mt ON mt.tagID = t.id
-                JOIN modelProject p ON p.id = mt.projectID
-                WHERE p.libraryID = ? AND p.missing = 0
-                ORDER BY t.name COLLATE NOCASE
-                """, arguments: [libraryID])
+                SELECT name
+                FROM tag
+                ORDER BY sortOrder, id
+                """)
         }
     }
 
@@ -260,38 +264,133 @@ final class DatabaseStore: @unchecked Sendable {
         )
     }
 
-    func addTag(_ name: String, projectID: String) throws {
+    func createTag(_ name: String) throws {
         let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalized.isEmpty else { return }
         try databaseQueue.write { db in
-            try db.execute(
-                sql: "INSERT OR IGNORE INTO tag (name) VALUES (?)",
-                arguments: [normalized]
-            )
-            guard let tagID = try Int64.fetchOne(
+            let exists = try Bool.fetchOne(
                 db,
-                sql: "SELECT id FROM tag WHERE name = ? COLLATE NOCASE",
+                sql: "SELECT EXISTS(SELECT 1 FROM tag WHERE name = ? COLLATE NOCASE)",
                 arguments: [normalized]
-            ) else { return }
+            ) ?? false
+            guard !exists else { throw DatabaseError(message: "A tag with this name already exists.") }
+            try db.execute(sql: """
+                INSERT INTO tag (name, sortOrder)
+                VALUES (?, (SELECT COALESCE(MAX(sortOrder), -1) + 1 FROM tag))
+                """, arguments: [normalized])
+        }
+    }
+
+    func renameTag(_ oldName: String, to newName: String) throws {
+        let normalized = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else { return }
+        try databaseQueue.write { db in
+            let conflict = try Bool.fetchOne(db, sql: """
+                SELECT EXISTS(
+                    SELECT 1 FROM tag
+                    WHERE name = ? COLLATE NOCASE AND name != ? COLLATE NOCASE
+                )
+                """, arguments: [normalized, oldName]) ?? false
+            guard !conflict else { throw DatabaseError(message: "A tag with this name already exists.") }
             try db.execute(
-                sql: "INSERT OR IGNORE INTO modelTag (projectID, tagID) VALUES (?, ?)",
-                arguments: [projectID, tagID]
+                sql: "UPDATE tag SET name = ? WHERE name = ? COLLATE NOCASE",
+                arguments: [normalized, oldName]
             )
         }
     }
 
-    func removeTag(_ name: String, projectID: String) throws {
+    func setTag(_ name: String, assigned: Bool, projectIDs: [String]) throws {
+        guard !projectIDs.isEmpty else { return }
         try databaseQueue.write { db in
-            try db.execute(sql: """
-                DELETE FROM modelTag
-                WHERE projectID = ? AND tagID IN (
-                    SELECT id FROM tag WHERE name = ? COLLATE NOCASE
+            guard let tagID = try Int64.fetchOne(
+                db,
+                sql: "SELECT id FROM tag WHERE name = ? COLLATE NOCASE",
+                arguments: [name]
+            ) else { throw DatabaseError(message: "Tag not found: \(name)") }
+
+            for projectID in projectIDs {
+                if assigned {
+                    try db.execute(
+                        sql: "INSERT OR IGNORE INTO modelTag (projectID, tagID) VALUES (?, ?)",
+                        arguments: [projectID, tagID]
+                    )
+                } else {
+                    try db.execute(
+                        sql: "DELETE FROM modelTag WHERE projectID = ? AND tagID = ?",
+                        arguments: [projectID, tagID]
+                    )
+                }
+            }
+        }
+    }
+
+    func tagSnapshot(_ name: String) throws -> TagSnapshot? {
+        try databaseQueue.read { db in
+            guard let row = try Row.fetchOne(db, sql: """
+                SELECT id, name, sortOrder FROM tag WHERE name = ? COLLATE NOCASE
+                """, arguments: [name]) else { return nil }
+            let tagID: Int64 = row["id"]
+            return TagSnapshot(
+                name: row["name"],
+                sortOrder: row["sortOrder"],
+                projectIDs: try String.fetchAll(
+                    db,
+                    sql: "SELECT projectID FROM modelTag WHERE tagID = ?",
+                    arguments: [tagID]
                 )
-                """, arguments: [projectID, name])
-            try db.execute(sql: """
-                DELETE FROM tag
-                WHERE NOT EXISTS (SELECT 1 FROM modelTag WHERE modelTag.tagID = tag.id)
-                """)
+            )
+        }
+    }
+
+    func deleteTag(_ name: String) throws {
+        try databaseQueue.write { db in
+            try db.execute(
+                sql: "DELETE FROM tag WHERE name = ? COLLATE NOCASE",
+                arguments: [name]
+            )
+        }
+    }
+
+    func restoreTag(_ snapshot: TagSnapshot) throws {
+        try databaseQueue.write { db in
+            try db.execute(
+                sql: "INSERT INTO tag (name, sortOrder) VALUES (?, ?)",
+                arguments: [snapshot.name, snapshot.sortOrder]
+            )
+            guard let tagID = try Int64.fetchOne(
+                db,
+                sql: "SELECT id FROM tag WHERE name = ? COLLATE NOCASE",
+                arguments: [snapshot.name]
+            ) else { return }
+            for projectID in snapshot.projectIDs {
+                try db.execute(
+                    sql: "INSERT OR IGNORE INTO modelTag (projectID, tagID) VALUES (?, ?)",
+                    arguments: [projectID, tagID]
+                )
+            }
+        }
+    }
+
+    func setTagOrder(_ names: [String]) throws {
+        try databaseQueue.write { db in
+            for (index, name) in names.enumerated() {
+                try db.execute(
+                    sql: "UPDATE tag SET sortOrder = ? WHERE name = ? COLLATE NOCASE",
+                    arguments: [index, name]
+                )
+            }
+        }
+    }
+
+    func setProjectsMissing(_ missing: Bool, projectIDs: [String]) throws {
+        guard !projectIDs.isEmpty else { return }
+        try databaseQueue.write { db in
+            for projectID in projectIDs {
+                try db.execute(
+                    sql: "UPDATE modelProject SET missing = ? WHERE id = ?",
+                    arguments: [missing, projectID]
+                )
+            }
         }
     }
 
@@ -367,6 +466,82 @@ final class DatabaseStore: @unchecked Sendable {
                 table.add(column: "sourceURL", .text).notNull().defaults(to: "")
                 table.add(column: "license", .text).notNull().defaults(to: "")
                 table.add(column: "modelDescription", .text).notNull().defaults(to: "")
+            }
+        }
+        migrator.registerMigration("v3-model-categories-and-import-date") { db in
+            try db.alter(table: "modelProject") { table in
+                table.add(column: "importedAt", .datetime)
+            }
+            try db.execute(sql: """
+                UPDATE modelProject
+                SET importedAt = COALESCE(
+                    (SELECT createdAt FROM library WHERE library.id = modelProject.libraryID),
+                    createdAt
+                )
+                """)
+
+            try db.alter(table: "tag") { table in
+                table.add(column: "sortOrder", .integer).notNull().defaults(to: 1000)
+            }
+            try db.execute(sql: "UPDATE tag SET sortOrder = 1000 + id")
+            for (index, name) in ["Tools", "Decor", "Toys", "Education", "Fashion"].enumerated() {
+                try db.execute(
+                    sql: "INSERT OR IGNORE INTO tag (name, sortOrder) VALUES (?, ?)",
+                    arguments: [name, index]
+                )
+                try db.execute(
+                    sql: "UPDATE tag SET sortOrder = ? WHERE name = ? COLLATE NOCASE",
+                    arguments: [index, name]
+                )
+            }
+        }
+        migrator.registerMigration("v4-english-tag-names") { db in
+            try db.execute(sql: "UPDATE tag SET sortOrder = 1000 + id")
+            let mappings = [
+                ("工具", "Tools"),
+                ("摆件", "Decor"),
+                ("玩具", "Toys"),
+                ("教育", "Education"),
+                ("时尚", "Fashion")
+            ]
+            for (index, mapping) in mappings.enumerated() {
+                let oldID = try Int64.fetchOne(
+                    db,
+                    sql: "SELECT id FROM tag WHERE name = ? COLLATE NOCASE",
+                    arguments: [mapping.0]
+                )
+                var newID = try Int64.fetchOne(
+                    db,
+                    sql: "SELECT id FROM tag WHERE name = ? COLLATE NOCASE",
+                    arguments: [mapping.1]
+                )
+
+                if let oldID, let existingNewID = newID, oldID != existingNewID {
+                    try db.execute(sql: """
+                        INSERT OR IGNORE INTO modelTag (projectID, tagID)
+                        SELECT projectID, ? FROM modelTag WHERE tagID = ?
+                        """, arguments: [existingNewID, oldID])
+                    try db.execute(sql: "DELETE FROM tag WHERE id = ?", arguments: [oldID])
+                } else if let oldID, newID == nil {
+                    try db.execute(
+                        sql: "UPDATE tag SET name = ? WHERE id = ?",
+                        arguments: [mapping.1, oldID]
+                    )
+                    newID = oldID
+                } else if newID == nil {
+                    try db.execute(
+                        sql: "INSERT INTO tag (name, sortOrder) VALUES (?, ?)",
+                        arguments: [mapping.1, index]
+                    )
+                    newID = db.lastInsertedRowID
+                }
+
+                if let newID {
+                    try db.execute(
+                        sql: "UPDATE tag SET sortOrder = ? WHERE id = ?",
+                        arguments: [index, newID]
+                    )
+                }
             }
         }
         try migrator.migrate(databaseQueue)

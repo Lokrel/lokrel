@@ -21,7 +21,8 @@ struct ProjectThumbnail: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
-        .task(id: project.displayCoverURL) {
+        .task(id: thumbnailTaskID) {
+            guard !appModel.isScanning else { return }
             guard let url = project.displayCoverURL else {
                 image = nil
                 appModel.ensureThumbnail(for: project)
@@ -31,5 +32,10 @@ struct ProjectThumbnail: View {
                 NSImage(contentsOf: url)
             }.value
         }
+    }
+
+    private var thumbnailTaskID: String {
+        guard !appModel.isScanning else { return "scanning" }
+        return project.displayCoverURL?.path ?? "automatic:\(project.id)"
     }
 }

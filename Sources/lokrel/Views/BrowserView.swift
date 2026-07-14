@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct BrowserView: View {
@@ -17,7 +18,15 @@ struct BrowserView: View {
             } else if appModel.projects.isEmpty && appModel.isScanning {
                 ProgressView("Scanning model library…")
             } else if appModel.filteredProjects.isEmpty {
-                ContentUnavailableView.search(text: appModel.searchText)
+                if appModel.activeFilterCount > 0 {
+                    ContentUnavailableView(
+                        "No Matching Models",
+                        systemImage: "line.3.horizontal.decrease.circle",
+                        description: Text("Try removing one or more filters.")
+                    )
+                } else {
+                    ContentUnavailableView.search(text: appModel.searchText)
+                }
             } else if appModel.layout == .grid {
                 ProjectGridView(appModel: appModel)
             } else {
@@ -31,13 +40,6 @@ struct BrowserView: View {
                 if appModel.isScanning {
                     ProgressView().controlSize(.small)
                 }
-                Button {
-                    appModel.rescan()
-                } label: {
-                    Label("Rescan Library", systemImage: "arrow.clockwise")
-                }
-                .disabled(appModel.library == nil || appModel.isScanning)
-
                 Picker("Layout", selection: $appModel.layout) {
                     Label("Grid", systemImage: "square.grid.2x2").tag(BrowserLayout.grid)
                     Label("List", systemImage: "list.bullet").tag(BrowserLayout.list)
@@ -68,7 +70,17 @@ private struct ProjectGridView: View {
             LazyVGrid(columns: columns, alignment: .leading, spacing: 18) {
                 ForEach(appModel.filteredProjects) { project in
                     ProjectCard(project: project, appModel: appModel)
-                        .onTapGesture { appModel.selectedProjectID = project.id }
+                        .draggable(appModel.dragPayload(for: project.id))
+                        .onTapGesture(count: 2) {
+                            appModel.selectProject(project.id, extending: false)
+                            appModel.openPrimaryFile(project)
+                        }
+                        .onTapGesture {
+                            appModel.selectProject(
+                                project.id,
+                                extending: NSEvent.modifierFlags.contains(.command)
+                            )
+                        }
                 }
             }
             .padding(18)
@@ -89,12 +101,20 @@ private struct ProjectCard: View {
                     .background(Color(nsColor: .controlBackgroundColor))
                     .clipShape(RoundedRectangle(cornerRadius: 8))
 
-                if project.favorite {
-                    Image(systemName: "star.fill")
-                        .foregroundStyle(.yellow)
-                        .padding(8)
-                        .shadow(radius: 2)
+                HStack(spacing: 6) {
+                    ProjectTagMenu(project: project, appModel: appModel)
+                    Button {
+                        appModel.toggleFavorite(projectID: project.id)
+                    } label: {
+                        Image(systemName: project.favorite ? "star.fill" : "star")
+                            .foregroundStyle(project.favorite ? .yellow : .secondary)
+                            .frame(width: 25, height: 25)
+                            .background(.regularMaterial, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(project.favorite ? "Remove from Favorites" : "Add to Favorites")
                 }
+                .padding(8)
             }
 
             Text(project.displayName)
@@ -113,7 +133,7 @@ private struct ProjectCard: View {
         .clipped()
         .background(
             RoundedRectangle(cornerRadius: 11)
-                .fill(appModel.selectedProjectID == project.id
+                .fill(appModel.selectedProjectIDs.contains(project.id)
                       ? Color.accentColor.opacity(0.16)
                       : Color.clear)
         )
@@ -126,17 +146,27 @@ private struct ProjectListView: View {
     @ObservedObject var appModel: AppModel
 
     var body: some View {
-        Table(appModel.filteredProjects, selection: $appModel.selectedProjectID) {
+        Table(appModel.filteredProjects, selection: $appModel.selectedProjectIDs) {
             TableColumn("Name") { project in
                 HStack(spacing: 10) {
                     ProjectThumbnail(project: project, appModel: appModel)
                         .frame(width: 46, height: 38)
                         .clipShape(RoundedRectangle(cornerRadius: 4))
-                    Image(systemName: project.favorite ? "star.fill" : "star")
-                        .foregroundStyle(project.favorite ? Color.yellow : Color.secondary.opacity(0.45))
                     Text(project.displayName)
+                    Spacer(minLength: 8)
+                    ProjectTagMenu(project: project, appModel: appModel)
+                    Button {
+                        appModel.toggleFavorite(projectID: project.id)
+                    } label: {
+                        Image(systemName: project.favorite ? "star.fill" : "star")
+                            .foregroundStyle(project.favorite ? Color.yellow : Color.secondary.opacity(0.55))
+                    }
+                    .buttonStyle(.borderless)
                 }
+                .contentShape(Rectangle())
+                .onTapGesture(count: 2) { appModel.openPrimaryFile(project) }
                 .contextMenu { ProjectContextMenu(project: project, appModel: appModel) }
+                .draggable(appModel.dragPayload(for: project.id))
             }
             TableColumn("Modified") { project in
                 Text(project.modifiedAt?.formatted(date: .abbreviated, time: .shortened) ?? "—")
@@ -158,12 +188,29 @@ struct ProjectContextMenu: View {
     let project: ModelProject
     @ObservedObject var appModel: AppModel
 
+    private var targetProjectIDs: Set<String> {
+        appModel.actionProjectIDs(for: project.id)
+    }
+
     var body: some View {
         Button("Open") { appModel.openPrimaryFile(project) }
         Button("Show in Finder") { appModel.revealInFinder(project) }
         Divider()
         Button(project.favorite ? "Remove from Favorites" : "Add to Favorites") {
             appModel.toggleFavorite(projectID: project.id)
+        }
+        Menu("Tags") {
+            ForEach(Array(appModel.tags.enumerated()), id: \.element) { index, tag in
+                Button {
+                    appModel.toggleTag(tag, projectIDs: targetProjectIDs)
+                } label: {
+                    if appModel.tagIsAssignedToAll(tag, projectIDs: targetProjectIDs) {
+                        Label("\(tag)\(index < 9 ? "  (\(index + 1))" : "")", systemImage: "checkmark")
+                    } else {
+                        Text("\(tag)\(index < 9 ? "  (\(index + 1))" : "")")
+                    }
+                }
+            }
         }
         Menu("Set Cover Image") {
             ForEach(project.files.filter(\.isImage)) { file in
@@ -177,5 +224,43 @@ struct ProjectContextMenu: View {
                 Button("Use Automatic Cover") { appModel.resetCover(projectID: project.id) }
             }
         }
+        Divider()
+        Button("Move to Trash", role: .destructive) {
+            appModel.requestDelete(project)
+        }
+    }
+}
+
+private struct ProjectTagMenu: View {
+    let project: ModelProject
+    @ObservedObject var appModel: AppModel
+
+    private var targetProjectIDs: Set<String> {
+        appModel.actionProjectIDs(for: project.id)
+    }
+
+    var body: some View {
+        Menu {
+            ForEach(Array(appModel.tags.enumerated()), id: \.element) { index, tag in
+                Button {
+                    appModel.toggleTag(tag, projectIDs: targetProjectIDs)
+                } label: {
+                    if appModel.tagIsAssignedToAll(tag, projectIDs: targetProjectIDs) {
+                        Label("\(tag)\(index < 9 ? "  (\(index + 1))" : "")", systemImage: "checkmark")
+                    } else {
+                        Text("\(tag)\(index < 9 ? "  (\(index + 1))" : "")")
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: project.tags.isEmpty ? "tag" : "tag.fill")
+                .foregroundStyle(project.tags.isEmpty ? Color.secondary : Color.accentColor)
+                .frame(width: 25, height: 25)
+                .background(.regularMaterial, in: Circle())
+        }
+        .menuIndicator(.hidden)
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help(project.tags.isEmpty ? "Set Tags" : project.tags.joined(separator: ", "))
     }
 }

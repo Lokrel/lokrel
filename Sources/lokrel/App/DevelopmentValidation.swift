@@ -36,14 +36,21 @@ enum DevelopmentValidation {
 
         let database = try DatabaseStore(path: root.appendingPathComponent("validation.sqlite").path)
         var library = try database.applyScan(scan, rootURL: root)
+        let defaultTags = try database.allTags(libraryID: library.id)
+        try require(
+            Array(defaultTags.prefix(5)) == ["Tools", "Decor", "Toys", "Education", "Fashion"],
+            "Default category order was not created"
+        )
         guard var project = try database.projects(libraryID: library.id).first(where: {
             $0.name == "SKADIS Antenna Holder"
         }) else {
             throw ValidationError.failed("Expected a stored project")
         }
+        try require(project.importedAt != nil, "Import date was not stored")
         try database.setFavorite(true, projectID: project.id)
         try database.setNote("Upload to MakerWorld", projectID: project.id)
-        try database.addTag("608", projectID: project.id)
+        try database.createTag("608")
+        try database.setTag("608", assigned: true, projectIDs: [project.id])
         try database.setEditableDetails(EditableModelDetails(
             customName: "Antenna Holder",
             author: "lokrel Test",
@@ -66,6 +73,39 @@ enum DevelopmentValidation {
         try require(project.displayName == "Antenna Holder", "Custom name was not preserved")
         try require(project.author == "lokrel Test", "Author was not preserved")
         try require(project.sourceURL == "https://example.com/model", "Source URL was not preserved")
+        guard let tagSnapshot = try database.tagSnapshot("608") else {
+            throw ValidationError.failed("Expected a tag snapshot")
+        }
+        try database.deleteTag("608")
+        let tagsAfterDefinitionDelete = try database.allTags(libraryID: library.id)
+        try require(
+            !tagsAfterDefinitionDelete.contains("608"),
+            "Tag definition was not deleted"
+        )
+        try database.restoreTag(tagSnapshot)
+        let restoredTagProject = try database.projects(libraryID: library.id)
+            .first(where: { $0.id == project.id })
+        try require(
+            restoredTagProject?.tags.contains("608") == true,
+            "Deleted tag assignments were not restored"
+        )
+        try database.renameTag("608", to: "Prototype")
+        try database.setTag("Prototype", assigned: false, projectIDs: [project.id])
+        let tagsAfterRemoval = try database.allTags(libraryID: library.id)
+        try require(
+            tagsAfterRemoval.contains("Prototype"),
+            "Unassigned tag definition was not preserved"
+        )
+        try database.setProjectsMissing(true, projectIDs: [project.id])
+        let visibleAfterHiding = try database.projects(libraryID: library.id)
+        try require(
+            !visibleAfterHiding.contains(where: { $0.id == project.id }),
+            "Missing project was still visible"
+        )
+        try database.setProjectsMissing(false, projectIDs: [project.id])
+        let restoredProject = try database.projects(libraryID: library.id)
+            .first(where: { $0.id == project.id })
+        try require(restoredProject?.files.count == 6, "Hidden project files were not preserved")
 
         let metadata = try ThreeMFMetadataService.extract(fileURL: threeMFURL)
         try require(metadata.designer == "Sample Designer", "3MF designer metadata was not extracted")

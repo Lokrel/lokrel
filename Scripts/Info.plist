@@ -17,14 +17,20 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.1.2</string>
+    <string>1.2.0</string>
     <key>CFBundleVersion</key>
-    <string>4</string>
+    <string>5</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUFeedURL</key>
+    <string>https://lokrel.github.io/lokrel/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>OeW7/v1xk3f47ZLN35gMOug0nv/qAmuHNDE7Py0wSOc=</string>
 </dict>
 </plist>

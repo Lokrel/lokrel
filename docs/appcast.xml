@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>lokrel Updates</title>
+        <link>https://lokrel.github.io/lokrel/</link>
+        <description>Stable lokrel releases for macOS.</description>
+        <language>en</language>
+        <item>
+            <title>1.2.0</title>
+            <pubDate>Tue, 14 Jul 2026 22:00:20 +0800</pubDate>
+            <link>https://github.com/Lokrel/lokrel/releases/latest</link>
+            <sparkle:version>5</sparkle:version>
+            <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/Lokrel/lokrel/releases/download/v1.2.0/Lokrel-1.2.0-macOS-Universal.dmg" length="7375818" type="application/octet-stream" sparkle:edSignature="z9TnpaMthvtOKGF9z5iFm9kepI7DIs6P5ejgKrJwRnJuE+RH2mOE+pIWtLNtkaqt1ds7d1QG3duw+ruKnprZBw=="/>
+        </item>
+    </channel>
+</rss>

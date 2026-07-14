@@ -5,7 +5,7 @@
 **A native macOS asset manager for local 3D printing model libraries.**  
 **本地 3D 打印模型库的原生 macOS 资源管理器。**
 
-Current version / 当前版本: `1.1.2`
+Current version / 当前版本: `1.2.0`
 
 [Download / 下载](#download--下载) · [Documentation / 文档](https://lokrel.github.io/lokrel/) · [Donate / 捐赠](#donate--捐赠)
 
@@ -24,10 +24,10 @@ lokrel organizes 3D-printing models like a photo library. A model and its relate
 ### System Requirements / 系统需求
 
 - macOS 14 Sonoma or later / macOS 14 Sonoma 或更新版本
-- Apple Silicon Mac only (ARM64: M1/M2/M3/M4 or later) / 仅支持 Apple 芯片 Mac（ARM64：M1/M2/M3/M4 或更新）
-- Intel Macs are not currently supported / 暂不支持 Intel Mac
+- Apple Silicon or Intel Mac / Apple 芯片或 Intel 芯片 Mac
+- Universal 2 app (ARM64 + x86_64) / Universal 2 应用（ARM64 + x86_64）
 
-### macOS (Apple Silicon) / macOS（Apple 芯片）
+### macOS (Universal 2) / macOS（Universal 2）
 
 - 📦 **GitHub Releases (Recommended) / GitHub Releases（推荐）**  
   https://github.com/Lokrel/lokrel/releases
@@ -35,8 +35,8 @@ lokrel organizes 3D-printing models like a photo library. A model and its relate
 ### 百度网盘下载 / Baidu Netdisk Download
 
 - ☁️ **Baidu Netdisk / 百度网盘**  
-  https://pan.baidu.com/s/144ne-4VZO2kAt4ABlNvDbA  
-  Extraction Code / 提取码: `0t7e`
+  https://pan.baidu.com/s/1Rq0wQJ0zgUMqP1begjZwzg
+  Extraction Code / 提取码: `9jzm`
 
 ---
 
@@ -69,7 +69,10 @@ The saved library appears immediately the next time lokrel opens, followed by a 
 - **丰富元数据**：显示文件属性、3MF 内置作者、许可、创建软件和厂商字段；显示名称、作者、来源链接、许可和描述可以在 lokrel 中修改。
 - **自定义封面**：右键模型，可选择关联图片或本机 JPG/PNG。
 - **目录浏览**：左侧 Folders 区域按照原始目录结构浏览模型。
-- **搜索与整理**：按模型名、关联文件名或标签实时搜索；支持收藏、标签和备注。
+- **标签管理**：创建、重命名或删除标签；使用数字快捷键设置标签，并支持拖放批量归类。
+- **筛选与批量操作**：按标签、导入时间、文件类型和收藏状态筛选；支持多选和批量删除。
+- **搜索与整理**：按模型名、关联文件名或标签实时搜索；支持收藏、标签、备注和撤销操作。
+- **自动更新**：在 App 内检查新版本并一键升级。
 - **打开与定位**：使用默认软件打开模型，或在 Finder 中显示原文件。
 
 ## Main Features
@@ -81,7 +84,10 @@ The saved library appears immediately the next time lokrel opens, followed by a 
 - **Rich metadata:** View file properties plus embedded 3MF author, license, source application, and vendor fields. Display name, author, source link, license, and description are editable inside lokrel.
 - **Custom covers:** Right-click a model to use a related image or choose a JPG/PNG from your Mac.
 - **Folder browsing:** The Folders section mirrors the original directory structure.
-- **Search and organize:** Search model names, related filenames, or tags. Add favorites, tags, and notes.
+- **Tag management:** Create, rename, or delete tags; use number shortcuts and drag-and-drop for batch tagging.
+- **Filters and batch actions:** Filter by tags, import date, file type, or favorites; select and delete multiple models.
+- **Search and organize:** Search model names, related filenames, or tags. Add favorites, tags, notes, and undo changes.
+- **Automatic updates:** Check for new versions and install them directly in the app.
 - **Open and reveal:** Open a model in its default app or reveal the original file in Finder.
 
 ---
@@ -141,7 +147,9 @@ Donation options are not configured yet.
 
 ## 发布打包
 
-`Scripts/release.sh` 会生成 `dist/archive/` 下的 `.app` archive，使用 Developer ID 签名并开启 Hardened Runtime，然后生成、签名、notarize、staple DMG。所有 Apple 凭据都从环境变量读取，不写入仓库。
+`Scripts/release.sh` 会生成 `dist/archive/` 下的 `.app` archive，使用 Developer ID 签名并开启 Hardened Runtime，然后生成、签名、notarize、staple DMG，并更新 Sparkle 使用的 `docs/appcast.xml`。Apple 凭据和 Sparkle 更新私钥都不会写入仓库。
+
+每次发布必须同时递增 `CFBundleVersion`，并将更新后的 `docs/appcast.xml` 提交到网站，App 才能检测并安装新版本。
 
 ```bash
 export LOKREL_DEVELOPER_ID_APPLICATION="Developer ID Application: Your Name (TEAMID)"
@@ -150,10 +158,14 @@ export LOKREL_NOTARY_TEAM_ID="TEAMID"
 export LOKREL_NOTARY_PASSWORD="xxxx-xxxx-xxxx-xxxx"
 Scripts/release.sh
 ```
+
+也可以将公证凭据保存在钥匙串中，并设置 `LOKREL_NOTARY_KEYCHAIN_PROFILE` 使用该配置。
 
 ## Release Packaging
 
-`Scripts/release.sh` creates an archived `.app` under `dist/archive/`, signs it with Developer ID and Hardened Runtime, then creates, signs, notarizes, and staples the DMG. All Apple credentials are read from environment variables and are not stored in the repository.
+`Scripts/release.sh` creates an archived `.app` under `dist/archive/`, signs it with Developer ID and Hardened Runtime, then creates, signs, notarizes, and staples the DMG. It also updates `docs/appcast.xml` for Sparkle. Apple credentials and the Sparkle private update key stay outside the repository.
+
+Every release must increment `CFBundleVersion` and publish the updated `docs/appcast.xml` so the app can discover and install the new version.
 
 ```bash
 export LOKREL_DEVELOPER_ID_APPLICATION="Developer ID Application: Your Name (TEAMID)"
@@ -162,3 +174,5 @@ export LOKREL_NOTARY_TEAM_ID="TEAMID"
 export LOKREL_NOTARY_PASSWORD="xxxx-xxxx-xxxx-xxxx"
 Scripts/release.sh
 ```
+
+Alternatively, store notarization credentials in Keychain and set `LOKREL_NOTARY_KEYCHAIN_PROFILE` to use that profile.

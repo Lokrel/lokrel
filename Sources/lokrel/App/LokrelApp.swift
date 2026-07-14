@@ -1,8 +1,10 @@
+import Sparkle
 import SwiftUI
 
 @main
 struct LokrelApp: App {
     @StateObject private var appModel: AppModel
+    private let updaterController: SPUStandardUpdaterController
 
     init() {
 #if DEBUG
@@ -26,6 +28,11 @@ struct LokrelApp: App {
             }
         }
 #endif
+        updaterController = SPUStandardUpdaterController(
+            startingUpdater: true,
+            updaterDelegate: nil,
+            userDriverDelegate: nil
+        )
         _appModel = StateObject(wrappedValue: AppModel())
     }
 
@@ -36,12 +43,44 @@ struct LokrelApp: App {
         }
         .defaultSize(width: 1320, height: 820)
         .commands {
+            CommandGroup(after: .appInfo) {
+                CheckForUpdatesView(updater: updaterController.updater)
+            }
+            CommandGroup(replacing: .undoRedo) {
+                Button(appModel.undoMenuTitle) { appModel.undo() }
+                    .keyboardShortcut("z", modifiers: [.command])
+                    .disabled(!appModel.canUndo)
+                Button(appModel.redoMenuTitle) { appModel.redo() }
+                    .keyboardShortcut("z", modifiers: [.command, .shift])
+                    .disabled(!appModel.canRedo)
+            }
             CommandGroup(after: .newItem) {
                 Button("Choose Library…") { appModel.chooseLibrary() }
                     .keyboardShortcut("o", modifiers: [.command, .shift])
                 Button("Rescan Library") { appModel.rescan() }
                     .keyboardShortcut("r", modifiers: [.command])
                     .disabled(appModel.library == nil || appModel.isScanning)
+            }
+            CommandMenu("Model") {
+                Button("Manage Tags…") { appModel.isShowingTagManager = true }
+
+                Divider()
+
+                ForEach(Array(appModel.tags.prefix(9).enumerated()), id: \.element) { index, tag in
+                    Button("Set Tag \(index + 1): \(tag)") {
+                        appModel.assignTagShortcut(at: index)
+                    }
+                    .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: [])
+                    .disabled(!appModel.hasSelection)
+                }
+
+                Divider()
+
+                Button("Move Selected Models to Trash") {
+                    appModel.requestDeleteSelectedProjects()
+                }
+                .keyboardShortcut(.delete, modifiers: [])
+                .disabled(!appModel.hasSelection)
             }
         }
     }

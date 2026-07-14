@@ -5,7 +5,9 @@ struct InspectorView: View {
     @ObservedObject var appModel: AppModel
 
     var body: some View {
-        if let project = appModel.selectedProject {
+        if appModel.selectedProjectIDs.count > 1 {
+            MultiSelectionInspector(appModel: appModel)
+        } else if let project = appModel.selectedProject {
             ProjectInspector(project: project, appModel: appModel)
                 .id(project.id)
         } else {
@@ -21,7 +23,6 @@ struct InspectorView: View {
 private struct ProjectInspector: View {
     let project: ModelProject
     @ObservedObject var appModel: AppModel
-    @State private var newTag = ""
     @State private var note: String
     @State private var details: EditableModelDetails
     @State private var extractedMetadata: ExtractedModelMetadata?
@@ -137,31 +138,7 @@ private struct ProjectInspector: View {
                 }
 
                 InspectorSection("Tags") {
-                    if !project.tags.isEmpty {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 72))], alignment: .leading) {
-                            ForEach(project.tags, id: \.self) { tag in
-                                HStack(spacing: 4) {
-                                    Text(tag).lineLimit(1)
-                                    Button {
-                                        appModel.removeTag(tag, projectID: project.id)
-                                    } label: {
-                                        Image(systemName: "xmark.circle.fill")
-                                    }
-                                    .buttonStyle(.plain)
-                                    .foregroundStyle(.secondary)
-                                }
-                                .font(.caption)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 5)
-                                .background(.quaternary, in: Capsule())
-                            }
-                        }
-                    }
-                    TextField("Add tag and press Return", text: $newTag)
-                        .onSubmit {
-                            appModel.addTag(newTag, projectID: project.id)
-                            newTag = ""
-                        }
+                    TagSelectionPicker(projectIDs: [project.id], appModel: appModel)
                 }
 
                 InspectorSection("Notes") {
@@ -265,6 +242,81 @@ private struct ProjectInspector: View {
         } else {
             ProjectThumbnail(project: project, appModel: appModel)
         }
+    }
+}
+
+private struct MultiSelectionInspector: View {
+    @ObservedObject var appModel: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            ContentUnavailableView(
+                "\(appModel.selectedProjectIDs.count) Models Selected",
+                systemImage: "square.stack.3d.up",
+                description: Text("Choose tags below or drag the selected models onto a tag in the sidebar.")
+            )
+
+            InspectorSection("Tags") {
+                TagSelectionPicker(
+                    projectIDs: appModel.selectedProjectIDs,
+                    appModel: appModel
+                )
+            }
+
+            HStack {
+                Spacer()
+                Button("Move to Trash", role: .destructive) {
+                    appModel.requestDeleteSelectedProjects()
+                }
+            }
+        }
+        .padding(18)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .navigationTitle("Inspector")
+    }
+}
+
+private struct TagSelectionPicker: View {
+    let projectIDs: Set<String>
+    @ObservedObject var appModel: AppModel
+
+    var body: some View {
+        if appModel.tags.isEmpty {
+            Text("No tags available.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } else {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 96))], alignment: .leading) {
+                ForEach(appModel.tags, id: \.self) { tag in
+                    let allSelected = appModel.tagIsAssignedToAll(tag, projectIDs: projectIDs)
+                    let anySelected = appModel.tagIsAssignedToAny(tag, projectIDs: projectIDs)
+                    Button {
+                        appModel.toggleTag(tag, projectIDs: projectIDs)
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: allSelected
+                                  ? "checkmark.circle.fill"
+                                  : anySelected ? "minus.circle.fill" : "circle")
+                            Text(tag).lineLimit(1)
+                        }
+                        .font(.caption)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(
+                            allSelected || anySelected
+                                ? Color.accentColor.opacity(0.18)
+                                : Color.secondary.opacity(0.08),
+                            in: RoundedRectangle(cornerRadius: 6)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+
+        Button("Manage Tags…") { appModel.isShowingTagManager = true }
+            .buttonStyle(.link)
     }
 }
 

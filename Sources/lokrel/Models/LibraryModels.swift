@@ -31,6 +31,7 @@ struct ModelProject: Identifiable, Hashable, Sendable {
     let directoryPath: String
     let createdAt: Date?
     let modifiedAt: Date?
+    let importedAt: Date?
     let size: Int64
     var favorite: Bool
     var note: String
@@ -76,6 +77,12 @@ struct EditableModelDetails: Equatable, Sendable {
     var sourceURL: String
     var license: String
     var modelDescription: String
+}
+
+struct TagSnapshot: Sendable {
+    let name: String
+    let sortOrder: Int
+    let projectIDs: [String]
 }
 
 struct MetadataEntry: Identifiable, Hashable, Sendable {
@@ -149,6 +156,26 @@ enum LibrarySection: Hashable {
 enum BrowserLayout: String, CaseIterable {
     case grid
     case list
+}
+
+enum ImportDateFilter: String, CaseIterable, Identifiable {
+    case any
+    case today
+    case lastSevenDays
+    case lastThirtyDays
+    case earlier
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .any: return "Any Time"
+        case .today: return "Today"
+        case .lastSevenDays: return "Last 7 Days"
+        case .lastThirtyDays: return "Last 30 Days"
+        case .earlier: return "Earlier"
+        }
+    }
 }
 
 struct DirectoryNode: Identifiable, Hashable {
