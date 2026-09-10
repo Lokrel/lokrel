@@ -5,7 +5,7 @@
 **A native macOS asset manager for local 3D printing model libraries.**  
 **本地 3D 打印模型库的原生 macOS 资源管理器。**
 
-Current version / 当前版本: `1.2.0`
+Current version / 当前版本: `1.3.0`
 
 [Download / 下载](#download--下载) · [Documentation / 文档](https://lokrel.github.io/lokrel/) · [Donate / 捐赠](#donate--捐赠)
 
@@ -35,15 +35,15 @@ lokrel organizes 3D-printing models like a photo library. A model and its relate
 ### 百度网盘下载 / Baidu Netdisk Download
 
 - ☁️ **Baidu Netdisk / 百度网盘**  
-  https://pan.baidu.com/s/1Rq0wQJ0zgUMqP1begjZwzg
-  Extraction Code / 提取码: `9jzm`
+  https://pan.baidu.com/s/1o1hNQm8DjAIrfQLon8WpVg
+  Extraction Code / 提取码: `h7n5`
 
 ---
 
 ## 快速开始
 
 1. 打开 `lokrel.app`。
-2. 点击“Choose Folder…”并选择存放模型的顶层目录。
+2. 点击“选择文件夹…”并选择存放模型的顶层目录。
 3. 等待扫描完成，即可使用网格或列表浏览。
 4. 点击任意模型，在右侧查看预览、文件、标签和备注。
 
@@ -62,6 +62,9 @@ The saved library appears immediately the next time lokrel opens, followed by a 
 
 ## 主要功能
 
+- **中英双语**：跟随系统或单独应用语言设置，支持简体中文和英文，重启应用后生效。
+- **多资料库与自动刷新**：切换已保存的资料库，自动检查本地和网络共享目录的变化。
+- **浏览与整理**：方向键浏览、空格预览、同来源分组、多种排序，以及按整个项目移动或复制文件。
 - **模型项目**：同一目录中的同名 3MF、STL、STEP、OBJ、图片、PDF 和 README 会自动归组。
 - **3MF 封面**：优先读取文件内置缩略图并缓存。
 - **STL 预览**：纯 STL 模型会自动生成卡片缩略图；在 Inspector 中可拖动旋转、滚动缩放。
@@ -77,6 +80,9 @@ The saved library appears immediately the next time lokrel opens, followed by a 
 
 ## Main Features
 
+- **Chinese and English:** Follow the system or per-app language preference; restart the app to apply changes.
+- **Multiple libraries and automatic refresh:** Switch saved libraries and detect changes in local and network folders.
+- **Browse and organize:** Navigate with arrow keys, preview with Space, group by source, sort, and move or copy complete projects.
 - **Model projects:** Matching 3MF, STL, STEP, OBJ, image, PDF, and README files in the same folder are grouped automatically.
 - **3MF covers:** Embedded thumbnails are extracted and cached.
 - **STL previews:** STL-only models receive generated card thumbnails. Drag to rotate and scroll to zoom in the Inspector.
@@ -112,13 +118,13 @@ The saved library appears immediately the next time lokrel opens, followed by a 
 
 lokrel 不会修改模型原文件。标签、收藏、备注和封面选择保存在本机数据库中；缩略图保存在本机缓存中。没有登录、上传或云同步。
 
-当前目录树用于浏览和筛选。移动或重命名文件时，请使用 Finder；刷新后 lokrel 会重新识别目录内容。
+目录树支持浏览和筛选。右键项目可移动、复制或创建文件夹；文件操作会先列出源路径和目标路径供确认。同来源分组默认不移动文件。
 
 ## Files and Privacy
 
 lokrel does not modify original model files. Tags, favorites, notes, and cover choices are stored in a local database, while thumbnails stay in the local cache. There is no account, upload, or cloud sync.
 
-The folder tree currently supports browsing and filtering. Use Finder to move or rename files, then rescan lokrel.
+The folder tree supports browsing and filtering. Right-click projects to move, copy, or create a folder; file operations show source and destination paths for confirmation. Source grouping does not move files by default.
 
 ---
 

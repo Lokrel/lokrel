@@ -11,7 +11,7 @@ actor ThreeMFMetadataService {
             $0.fileExtension.lowercased() == "3mf"
         }) else { return nil }
 
-        let stamp = Int(file.modifiedAt?.timeIntervalSince1970 ?? 0)
+        let stamp = file.modifiedAt?.timeIntervalSince1970 ?? 0
         let cacheKey = "\(file.path)::\(stamp)::\(file.size)"
         if let cached = cache[cacheKey] { return cached }
 

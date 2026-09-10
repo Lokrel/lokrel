@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>%ld Models Selected</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>ld</string>
+			<key>one</key>
+			<string>已选择 %ld 个模型</string>
+			<key>other</key>
+			<string>已选择 %ld 个模型</string>
+		</dict>
+	</dict>
+	<key>%ld files</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>ld</string>
+			<key>one</key>
+			<string>%ld 个文件</string>
+			<key>other</key>
+			<string>%ld 个文件</string>
+		</dict>
+	</dict>
+	<key>%ld files found</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>ld</string>
+			<key>one</key>
+			<string>已发现 %ld 个文件</string>
+			<key>other</key>
+			<string>已发现 %ld 个文件</string>
+		</dict>
+	</dict>
+	<key>%ld models</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>ld</string>
+			<key>one</key>
+			<string>%ld 个模型</string>
+			<key>other</key>
+			<string>%ld 个模型</string>
+		</dict>
+	</dict>
+	<key>%ld models unavailable · Will retry</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>ld</string>
+			<key>one</key>
+			<string>%ld 个模型暂不可用 · 将重试</string>
+			<key>other</key>
+			<string>%ld 个模型暂不可用 · 将重试</string>
+		</dict>
+	</dict>
+	<key>%ld models · %@s</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>ld</string>
+			<key>one</key>
+			<string>%ld 个模型 · %@ 秒</string>
+			<key>other</key>
+			<string>%ld 个模型 · %@ 秒</string>
+		</dict>
+	</dict>
+	<key>%ld models · Saved library</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>ld</string>
+			<key>one</key>
+			<string>%ld 个模型 · 已保存的资料库</string>
+			<key>other</key>
+			<string>%ld 个模型 · 已保存的资料库</string>
+		</dict>
+	</dict>
+	<key>%ld models · Updated</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>ld</string>
+			<key>one</key>
+			<string>%ld 个模型 · 已更新</string>
+			<key>other</key>
+			<string>%ld 个模型 · 已更新</string>
+		</dict>
+	</dict>
+	<key>%ld projects</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>ld</string>
+			<key>one</key>
+			<string>%ld 个项目</string>
+			<key>other</key>
+			<string>%ld 个项目</string>
+		</dict>
+	</dict>
+	<key>Found %ld source groups spread across different folders. Review a plan to bring each group into one folder. Virtual groups are already available.</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>ld</string>
+			<key>one</key>
+			<string>发现 %ld 个来源分组分散在不同文件夹中。可查看整理方案，将每个分组集中到同一文件夹。虚拟分组已可使用。</string>
+			<key>other</key>
+			<string>发现 %ld 个来源分组分散在不同文件夹中。可查看整理方案，将每个分组集中到同一文件夹。虚拟分组已可使用。</string>
+		</dict>
+	</dict>
+	<key>Model Files (%ld)</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>ld</string>
+			<key>one</key>
+			<string>模型文件（%ld）</string>
+			<key>other</key>
+			<string>模型文件（%ld）</string>
+		</dict>
+	</dict>
+	<key>Move %ld Models to Trash?</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>ld</string>
+			<key>one</key>
+			<string>将 %ld 个模型移到废纸篓？</string>
+			<key>other</key>
+			<string>将 %ld 个模型移到废纸篓？</string>
+		</dict>
+	</dict>
+	<key>Source group, %ld projects</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>ld</string>
+			<key>one</key>
+			<string>来源分组，%ld 个项目</string>
+			<key>other</key>
+			<string>来源分组，%ld 个项目</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

@@ -44,6 +44,18 @@ struct ModelProject: Identifiable, Hashable, Sendable {
     var thumbnailPath: String?
     let files: [ModelFile]
     var tags: [String]
+    var embeddedSourceURL: String? = nil
+    var sourceSignature: String = ""
+    var sourceIdentity: String = ""
+
+    var modelTypes: String {
+        Set(files.filter(\.isPrimaryModel).map(\.displayType)).sorted().joined(separator: " · ")
+    }
+
+    var groupingSource: String {
+        sourceURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? (sourceIdentity.isEmpty ? (embeddedSourceURL ?? "") : sourceIdentity) : sourceURL
+    }
 
     var displayCoverURL: URL? {
         if let coverOverridePath, FileManager.default.fileExists(atPath: coverOverridePath) {
@@ -110,35 +122,10 @@ struct ExtractedModelMetadata: Hashable, Sendable {
     var designer: String? { value(named: "Designer", "creator", "dc:creator") }
     var license: String? { value(named: "LicenseTerms", "License") }
     var description: String? { value(named: "Description", "dc:description") }
-    var sourceURL: String? {
-        let directURL = entries.lazy.compactMap { entry -> String? in
-            guard ["url", "source", "origin", "download"].contains(where: {
-                entry.name.localizedCaseInsensitiveContains($0)
-            }) else { return nil }
-            return metadataURLs(in: entry.value).first
-        }.first
-        if let directURL { return directURL }
-
-        let makerWorldURL = entries.lazy.compactMap { entry -> String? in
-            guard ["DesignModelId", "MakerWorldModelId", "ModelId"].contains(where: {
-                entry.name.caseInsensitiveCompare($0) == .orderedSame
-            }) else { return nil }
-            return makerWorldModelURL(from: entry.value)
-        }.first
-        if let makerWorldURL { return makerWorldURL }
-
-        return entries.lazy
-            .filter { entry in
-                ["Description", "dc:description"].contains {
-                    entry.name.caseInsensitiveCompare($0) == .orderedSame
-                }
-            }
-            .flatMap { metadataURLs(in: $0.value) }
-            .first(where: isUsefulSourceURL)
-    }
+    var sourceURL: String? { ModelSourceResolver.embedded(self) }
 }
 
-struct LibraryLocation: Hashable, Sendable {
+struct LibraryLocation: Identifiable, Hashable, Sendable {
     let id: Int64
     let rootPath: String
     let name: String
@@ -169,11 +156,11 @@ enum ImportDateFilter: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .any: return "Any Time"
-        case .today: return "Today"
-        case .lastSevenDays: return "Last 7 Days"
-        case .lastThirtyDays: return "Last 30 Days"
-        case .earlier: return "Earlier"
+        case .any: return L10n.text("Any Time")
+        case .today: return L10n.text("Today")
+        case .lastSevenDays: return L10n.text("Last 7 Days")
+        case .lastThirtyDays: return L10n.text("Last 30 Days")
+        case .earlier: return L10n.text("Earlier")
         }
     }
 }
@@ -187,14 +174,15 @@ struct DirectoryNode: Identifiable, Hashable {
     var id: String { path }
     var optionalChildren: [DirectoryNode]? { children.isEmpty ? nil : children }
 
-    static func build(rootPath: String, projects: [ModelProject]) -> DirectoryNode {
+    static func build(rootPath: String, projects: [ModelProject], directoryPaths: [String] = []) -> DirectoryNode {
         let root = URL(fileURLWithPath: rootPath).standardizedFileURL.path
-        var discoveredPaths: Set<String> = [root]
+        var discoveredPaths: Set<String> = Set(directoryPaths.filter { $0.hasPrefix(root + "/") }).union([root])
         var directCounts: [String: Int] = [:]
 
         for project in projects {
             var current = URL(fileURLWithPath: project.directoryPath).standardizedFileURL.path
             directCounts[current, default: 0] += 1
+            if current != root && !current.hasPrefix(root + "/") { discoveredPaths.insert(current) }
             while current != root, current.hasPrefix(root + "/") {
                 discoveredPaths.insert(current)
                 current = URL(fileURLWithPath: current).deletingLastPathComponent().path
@@ -203,7 +191,7 @@ struct DirectoryNode: Identifiable, Hashable {
 
         var childrenByParent: [String: [String]] = [:]
         for path in discoveredPaths where path != root {
-            let parent = URL(fileURLWithPath: path).deletingLastPathComponent().path
+            let parent = path.hasPrefix(root + "/") ? URL(fileURLWithPath: path).deletingLastPathComponent().path : root
             childrenByParent[parent, default: []].append(path)
         }
 

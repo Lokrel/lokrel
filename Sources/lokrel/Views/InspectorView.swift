@@ -12,23 +12,26 @@ struct InspectorView: View {
                 .id(project.id)
         } else {
             ContentUnavailableView(
-                "No Model Selected",
+                L10n.text("No Model Selected"),
                 systemImage: "sidebar.right",
-                description: Text("Select a model to inspect its files and metadata.")
+                description: Text(L10n.text("Select a model to inspect its files and metadata."))
             )
         }
     }
 }
 
-private struct ProjectInspector: View {
+struct ProjectInspector: View {
+    let informationOnly: Bool
     let project: ModelProject
     @ObservedObject var appModel: AppModel
     @State private var note: String
     @State private var details: EditableModelDetails
     @State private var extractedMetadata: ExtractedModelMetadata?
     @State private var isLoadingMetadata = false
+    @State private var sourceInfo = ModelSourceInfo()
 
-    init(project: ModelProject, appModel: AppModel) {
+    init(project: ModelProject, appModel: AppModel, informationOnly: Bool = false) {
+        self.informationOnly = informationOnly
         self.project = project
         self.appModel = appModel
         _note = State(initialValue: project.note)
@@ -44,6 +47,7 @@ private struct ProjectInspector: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                if !informationOnly {
                 preview
                     .frame(maxWidth: .infinity)
                     .frame(height: 230)
@@ -52,9 +56,9 @@ private struct ProjectInspector: View {
                     .contextMenu { ProjectContextMenu(project: project, appModel: appModel) }
 
                 HStack {
-                    Button("Open") { appModel.openPrimaryFile(project) }
+                    Button(L10n.text("Open")) { appModel.openPrimaryFile(project) }
                         .buttonStyle(.borderedProminent)
-                    Button("Show in Finder") { appModel.revealInFinder(project) }
+                    Button(L10n.text("Show in Finder")) { appModel.revealInFinder(project) }
                     Spacer()
                     Button {
                         appModel.toggleFavorite(projectID: project.id)
@@ -62,20 +66,22 @@ private struct ProjectInspector: View {
                         Image(systemName: project.favorite ? "star.fill" : "star")
                             .foregroundStyle(project.favorite ? .yellow : .primary)
                     }
-                    .help(project.favorite ? "Remove from Favorites" : "Add to Favorites")
+                    .help(project.favorite ? L10n.text("Remove from Favorites") : L10n.text("Add to Favorites"))
                 }
 
-                InspectorSection("Model Information") {
-                    EditableMetadataRow(label: "Name") {
+                }
+
+                InspectorSection(L10n.text("Model Information")) {
+                    EditableMetadataRow(label: L10n.text("Name")) {
                         TextField(project.name, text: $details.customName)
                     }
-                    EditableMetadataRow(label: "Author") {
-                        TextField("Unknown", text: $details.author)
+                    EditableMetadataRow(label: L10n.text("Author")) {
+                        TextField(L10n.text("Unknown"), text: $details.author)
                     }
-                    EditableMetadataRow(label: "License") {
-                        TextField("Not specified", text: $details.license)
+                    EditableMetadataRow(label: L10n.text("License")) {
+                        TextField(L10n.text("Not specified"), text: $details.license)
                     }
-                    Text("Description")
+                    Text(L10n.text("Description"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     TextEditor(text: $details.modelDescription)
@@ -88,60 +94,79 @@ private struct ProjectInspector: View {
                         )
                 }
 
-                InspectorSection("Source / Download") {
+                InspectorSection(L10n.text("Source / Download")) {
+                    if let detected = project.embeddedSourceURL, !detected.isEmpty, let destination = URL(string: detected) {
+                        Text(L10n.text("Detected Model Page")).font(.caption).foregroundStyle(.secondary)
+                        Link(detected, destination: destination)
+                            .font(.caption).lineLimit(2).textSelection(.enabled)
+                    } else {
+                        Text(L10n.text("Model page not identified")).font(.caption).foregroundStyle(.secondary)
+                    }
+                    if !project.sourceIdentity.isEmpty && (project.embeddedSourceURL ?? "").isEmpty {
+                        Text(L10n.text("Source identified for grouping. The file does not contain a public model-page address."))
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
+                    if let platform = sourceInfo.platform ?? (project.sourceIdentity.isEmpty ? nil : "MakerWorld") {
+                        MetadataRow(label: L10n.text("Website"), value: platform)
+                    }
+                    if let download = sourceInfo.downloadURL {
+                        Button(L10n.text("Original Download")) { appModel.openSourceURL(download.absoluteString) }.buttonStyle(.link)
+                        Text(L10n.text("Download links may expire.")).font(.caption2).foregroundStyle(.secondary)
+                    }
+                    Text(L10n.text("Custom Model Page")).font(.caption).foregroundStyle(.secondary)
                     TextField("https://…", text: $details.sourceURL)
                         .textFieldStyle(.roundedBorder)
                     HStack {
-                        Button("Open Link") { appModel.openSourceURL(details.sourceURL) }
+                        Button(L10n.text("Open Link")) { appModel.openSourceURL(details.sourceURL) }
                             .disabled(!hasValidSourceURL)
                         Spacer()
-                        Button("Save Changes") {
+                        Button(L10n.text("Save Changes")) {
                             appModel.saveEditableDetails(details, projectID: project.id)
                         }
                         .buttonStyle(.borderedProminent)
                         .disabled(details == savedDetails)
                     }
-                    Text("Saved in lokrel only. Original files are not changed.")
+                    Text(L10n.text("Saved in lokrel only. Original files are not changed."))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
 
-                InspectorSection("File Properties") {
-                    MetadataRow(label: "Original Name", value: project.name)
-                    MetadataRow(label: "Primary File", value: project.primaryFile?.filename ?? "—")
-                    MetadataRow(label: "Formats", value: formats)
-                    MetadataRow(label: "File Count", value: project.files.count.formatted())
-                    MetadataRow(label: "Size", value: ByteCountFormatter.string(
+                InspectorSection(L10n.text("File Properties")) {
+                    MetadataRow(label: L10n.text("Original Name"), value: project.name)
+                    MetadataRow(label: L10n.text("Primary File"), value: project.primaryFile?.filename ?? "—")
+                    MetadataRow(label: L10n.text("Formats"), value: formats)
+                    MetadataRow(label: L10n.text("File Count"), value: project.files.count.formatted())
+                    MetadataRow(label: L10n.text("Size"), value: ByteCountFormatter.string(
                         fromByteCount: project.size,
                         countStyle: .file
                     ))
-                    MetadataRow(label: "Created", value: formatted(project.createdAt))
-                    MetadataRow(label: "Modified", value: formatted(project.modifiedAt))
-                    MetadataRow(label: "Location", value: project.directoryPath)
+                    MetadataRow(label: L10n.text("Created"), value: formatted(project.primaryFile?.createdAt))
+                    MetadataRow(label: L10n.text("Modified"), value: formatted(project.modifiedAt))
+                    MetadataRow(label: L10n.text("Location"), value: project.directoryPath)
                 }
 
                 if project.files.contains(where: { $0.fileExtension.lowercased() == "3mf" }) {
-                    InspectorSection("3MF Metadata") {
+                    InspectorSection(L10n.text("3MF Metadata")) {
                         if isLoadingMetadata {
-                            ProgressView("Reading metadata…")
+                            ProgressView(L10n.text("Reading metadata…"))
                                 .controlSize(.small)
                         } else if let extractedMetadata, !extractedMetadata.entries.isEmpty {
                             ForEach(extractedMetadata.entries) { entry in
                                 MetadataRow(label: displayLabel(entry.name), value: entry.value)
                             }
                         } else {
-                            Text("No embedded metadata found.")
+                            Text(L10n.text("No embedded metadata found."))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                     }
                 }
 
-                InspectorSection("Tags") {
+                InspectorSection(L10n.text("Tags")) {
                     TagSelectionPicker(projectIDs: [project.id], appModel: appModel)
                 }
 
-                InspectorSection("Notes") {
+                InspectorSection(L10n.text("Notes")) {
                     TextEditor(text: $note)
                         .font(.body)
                         .frame(minHeight: 90)
@@ -149,12 +174,12 @@ private struct ProjectInspector: View {
                         .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
                     HStack {
                         Spacer()
-                        Button("Save Note") { appModel.saveNote(note, projectID: project.id) }
+                        Button(L10n.text("Save Note")) { appModel.saveNote(note, projectID: project.id) }
                             .disabled(note == project.note)
                     }
                 }
 
-                InspectorSection("Files") {
+                InspectorSection(L10n.text("Files")) {
                     ForEach(project.files) { file in
                         HStack(spacing: 9) {
                             Image(systemName: file.isImage ? "photo" : "doc")
@@ -174,13 +199,15 @@ private struct ProjectInspector: View {
                         }
                         .contentShape(Rectangle())
                         .onTapGesture(count: 2) { NSWorkspace.shared.open(file.url) }
+                        .onDrag { NSItemProvider(object: file.url as NSURL) }
                     }
                 }
             }
             .padding(16)
         }
-        .navigationTitle("Inspector")
-        .task(id: project.id) { await loadMetadata() }
+        .navigationTitle(L10n.text("Inspector"))
+        .task(id: project.id + project.sourceSignature) { await loadMetadata() }
+        .onChange(of: savedDetails) { _, value in details = value }
     }
 
     private func formatted(_ date: Date?) -> String {
@@ -208,27 +235,51 @@ private struct ProjectInspector: View {
     }
 
     private func loadMetadata() async {
-        guard project.files.contains(where: { $0.fileExtension.lowercased() == "3mf" }) else { return }
+        guard let file = project.primaryFile else { return }
+        sourceInfo = await Task.detached(priority: .utility) {
+            ModelSourceResolver.resolve(fileURL: file.url)
+        }.value
+        guard !Task.isCancelled else { return }
         isLoadingMetadata = true
         let metadata = await ThreeMFMetadataService.shared.metadata(for: project)
+        guard !Task.isCancelled else { return }
         extractedMetadata = metadata
         isLoadingMetadata = false
         guard let metadata else { return }
         if details.author.isEmpty { details.author = metadata.designer ?? "" }
         if details.license.isEmpty { details.license = metadata.license ?? "" }
         if details.modelDescription.isEmpty { details.modelDescription = metadata.description ?? "" }
-        if details.sourceURL.isEmpty { details.sourceURL = metadata.sourceURL ?? "" }
+
     }
 
     private func displayLabel(_ name: String) -> String {
         let labels = [
-            "DesignerUserId": "Designer User ID",
-            "DesignModelId": "Design Model ID",
-            "MakerLabFileId": "MakerLab File ID",
-            "source_file": "Source File",
-            "CreationDate": "Created",
-            "ModificationDate": "Modified",
-            "LicenseTerms": "License"
+            "CopyRight": L10n.text("Copyright"),
+            "DesignRegion": L10n.text("Design Region"),
+            "DesignerCover": L10n.text("Designer Cover"),
+            "DesignProfileId": L10n.text("Print Profile ID"),
+            "ProfileCover": L10n.text("Print Profile Cover"),
+            "ProfileTitle": L10n.text("Print Profile Title"),
+            "ProfileUserId": L10n.text("Profile User ID"),
+            "ProfileUserName": L10n.text("Profile User Name"),
+            "Thumbnail_Middle": L10n.text("Medium Thumbnail"),
+            "Thumbnail_Small": L10n.text("Small Thumbnail"),
+
+            "Title": L10n.text("Title"),
+            "Designer": L10n.text("Designer"),
+            "dc:creator": L10n.text("Designer"),
+            "Description": L10n.text("Description"),
+            "Copyright": L10n.text("Copyright"),
+            "License": L10n.text("License"),
+            "Application": L10n.text("Application"),
+            "Origin": L10n.text("Origin"),
+            "DesignerUserId": L10n.text("Designer User ID"),
+            "DesignModelId": L10n.text("Design Model ID"),
+            "MakerLabFileId": L10n.text("MakerLab File ID"),
+            "source_file": L10n.text("Source File"),
+            "CreationDate": L10n.text("Created"),
+            "ModificationDate": L10n.text("Modified"),
+            "LicenseTerms": L10n.text("License")
         ]
         return labels[name] ?? name
     }
@@ -251,12 +302,12 @@ private struct MultiSelectionInspector: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             ContentUnavailableView(
-                "\(appModel.selectedProjectIDs.count) Models Selected",
+                L10n.format("%ld Models Selected", appModel.selectedProjectIDs.count),
                 systemImage: "square.stack.3d.up",
-                description: Text("Choose tags below or drag the selected models onto a tag in the sidebar.")
+                description: Text(L10n.text("Choose tags below or drag the selected models onto a tag in the sidebar."))
             )
 
-            InspectorSection("Tags") {
+            InspectorSection(L10n.text("Tags")) {
                 TagSelectionPicker(
                     projectIDs: appModel.selectedProjectIDs,
                     appModel: appModel
@@ -265,14 +316,14 @@ private struct MultiSelectionInspector: View {
 
             HStack {
                 Spacer()
-                Button("Move to Trash", role: .destructive) {
+                Button(L10n.text("Move to Trash"), role: .destructive) {
                     appModel.requestDeleteSelectedProjects()
                 }
             }
         }
         .padding(18)
         .frame(maxHeight: .infinity, alignment: .top)
-        .navigationTitle("Inspector")
+        .navigationTitle(L10n.text("Inspector"))
     }
 }
 
@@ -282,7 +333,7 @@ private struct TagSelectionPicker: View {
 
     var body: some View {
         if appModel.tags.isEmpty {
-            Text("No tags available.")
+            Text(L10n.text("No tags available."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         } else {
@@ -315,7 +366,7 @@ private struct TagSelectionPicker: View {
             }
         }
 
-        Button("Manage Tags…") { appModel.isShowingTagManager = true }
+        Button(L10n.text("Manage Tags…")) { appModel.isShowingTagManager = true }
             .buttonStyle(.link)
     }
 }

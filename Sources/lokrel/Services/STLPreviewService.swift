@@ -301,10 +301,10 @@ private enum ModelPreviewError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .invalidFile: return "This 3D model could not be read."
-        case .tooManyTriangles: return "This 3D model is too large to preview."
-        case .couldNotRender: return "The 3D model preview could not be rendered."
-        case .unsupportedFile: return "This 3D model format is not supported for preview."
+        case .invalidFile: return L10n.text("This 3D model could not be read.")
+        case .tooManyTriangles: return L10n.text("This 3D model is too large to preview.")
+        case .couldNotRender: return L10n.text("The 3D model preview could not be rendered.")
+        case .unsupportedFile: return L10n.text("This 3D model format is not supported for preview.")
         }
     }
 }

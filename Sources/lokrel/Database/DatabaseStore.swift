@@ -27,21 +27,45 @@ final class DatabaseStore: @unchecked Sendable {
             guard let row = try Row.fetchOne(db, sql: """
                 SELECT id, rootPath, name, lastScanAt
                 FROM library
-                ORDER BY COALESCE(lastScanAt, createdAt) DESC
+                WHERE removed = 0
+                ORDER BY COALESCE(lastOpenedAt, lastScanAt, createdAt) DESC
                 LIMIT 1
                 """) else { return nil }
             return library(from: row)
         }
     }
 
-    @discardableResult
-    func applyScan(_ result: ScanResult, rootURL: URL) throws -> LibraryLocation {
+    func libraries() throws -> [LibraryLocation] {
+        try databaseQueue.read { db in
+            try Row.fetchAll(db, sql: "SELECT id, rootPath, name, lastScanAt FROM library WHERE removed = 0 ORDER BY COALESCE(lastOpenedAt, lastScanAt, createdAt) DESC")
+                .map { library(from: $0) }
+        }
+    }
+
+    func restoreLibrary(rootURL: URL) throws -> LibraryLocation? {
+        let path = rootURL.resolvingSymlinksInPath().standardizedFileURL.path
+        return try databaseQueue.write { db in
+            guard let row = try Row.fetchOne(db, sql: "SELECT id, rootPath, name, lastScanAt FROM library WHERE rootPath = ?", arguments: [path]) else { return nil }
+            try db.execute(sql: "UPDATE library SET removed = 0, lastOpenedAt = ? WHERE rootPath = ?", arguments: [Date(), path])
+            return library(from: row)
+        }
+    }
+
+    func removeLibrary(id: Int64) throws {
         try databaseQueue.write { db in
+            try db.execute(sql: "UPDATE library SET removed = 1 WHERE id = ?", arguments: [id])
+        }
+    }
+
+    @discardableResult
+    func applyScan(_ result: ScanResult, rootURL: URL, progress: @Sendable (ScanProgress) -> Void = { _ in }) throws -> LibraryLocation {
+        let rootURL = rootURL.resolvingSymlinksInPath().standardizedFileURL
+        return try databaseQueue.write { db in
             let now = Date()
             try db.execute(sql: """
                 INSERT INTO library (rootPath, name, createdAt)
                 VALUES (?, ?, ?)
-                ON CONFLICT(rootPath) DO UPDATE SET name = excluded.name
+                ON CONFLICT(rootPath) DO UPDATE SET name = excluded.name, removed = 0
                 """, arguments: [rootURL.path, rootURL.lastPathComponent, now])
 
             guard let libraryID = try Int64.fetchOne(
@@ -49,36 +73,46 @@ final class DatabaseStore: @unchecked Sendable {
                 sql: "SELECT id FROM library WHERE rootPath = ?",
                 arguments: [rootURL.path]
             ) else {
-                throw DatabaseError(message: "Could not create library")
+                throw DatabaseError(message: L10n.text("Could not create library"))
             }
 
-            try db.execute(sql: """
-                DELETE FROM modelFile
-                WHERE projectID IN (
-                    SELECT id FROM modelProject WHERE libraryID = ? AND missing = 0
-                )
-                """, arguments: [libraryID])
-            try db.execute(
-                sql: "UPDATE modelProject SET missing = 1 WHERE libraryID = ?",
-                arguments: [libraryID]
-            )
+            let existingRows = try Row.fetchAll(db, sql: "SELECT * FROM modelProject WHERE libraryID = ?", arguments: [libraryID])
+            let existingByGroup = Dictionary(uniqueKeysWithValues: existingRows.map { (($0["groupKey"] as String), $0) })
+            let fileRows = try Row.fetchAll(db, sql: "SELECT f.* FROM modelFile f JOIN modelProject p ON p.id = f.projectID WHERE p.libraryID = ?", arguments: [libraryID])
+            let filesByProject = Dictionary(grouping: fileRows) { $0["projectID"] as String }
+            var seenIDs: Set<String> = []
 
-            for scannedProject in result.projects {
-                let projectID = try String.fetchOne(db, sql: """
-                    SELECT id FROM modelProject
-                    WHERE libraryID = ? AND groupKey = ?
-                    """, arguments: [libraryID, scannedProject.groupKey]) ?? UUID().uuidString
-
-                try db.execute(
-                    sql: "DELETE FROM modelFile WHERE projectID = ?",
-                    arguments: [projectID]
-                )
+            var lastProgress = Date.distantPast
+            for (index, scannedProject) in result.projects.enumerated() {
+                if Date().timeIntervalSince(lastProgress) >= 0.1 || index == result.projects.count - 1 {
+                    progress(ScanProgress(stage: .saving, completed: index, total: result.projects.count, filename: scannedProject.name))
+                    lastProgress = Date()
+                }
+                let previous = existingByGroup[scannedProject.groupKey]
+                let projectID = (previous?["id"] as String?) ?? UUID().uuidString
+                seenIDs.insert(projectID)
+                let oldFiles = filesByProject[projectID] ?? []
+                let currentByPath = Dictionary(uniqueKeysWithValues: scannedProject.files.map { ($0.path, $0) })
+                let unchangedFiles = oldFiles.count == scannedProject.files.count && oldFiles.allSatisfy { row in
+                    let file = ScannedFile(path: row["path"], filename: row["filename"], fileExtension: row["extension"], size: row["size"], createdAt: row["createdAt"], modifiedAt: row["modifiedAt"])
+                    return currentByPath[file.path].map { file.matches($0) } == true
+                }
+                if let previous, (previous["missing"] as Bool) == false, unchangedFiles,
+                   (previous["name"] as String) == scannedProject.name,
+                   (previous["directoryPath"] as String) == scannedProject.directoryPath,
+                   (previous["embeddedSourceURL"] as String?) == scannedProject.embeddedSourceURL,
+                   (previous["sourceSignature"] as String) == scannedProject.sourceSignature,
+                   (previous["sourceIdentity"] as String) == scannedProject.sourceIdentity { continue }
+                let currentPaths = Set(scannedProject.files.map(\.path))
+                for old in oldFiles where !currentPaths.contains(old["path"] as String) {
+                    try db.execute(sql: "DELETE FROM modelFile WHERE id = ?", arguments: [old["id"] as Int64])
+                }
 
                 try db.execute(sql: """
                     INSERT INTO modelProject (
                         id, libraryID, groupKey, name, directoryPath,
-                        createdAt, modifiedAt, importedAt, size, missing
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+                        createdAt, modifiedAt, importedAt, size, missing, embeddedSourceURL, sourceSignature, sourceIdentity
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
                     ON CONFLICT(id) DO UPDATE SET
                         groupKey = excluded.groupKey,
                         name = excluded.name,
@@ -86,8 +120,11 @@ final class DatabaseStore: @unchecked Sendable {
                         createdAt = excluded.createdAt,
                         modifiedAt = excluded.modifiedAt,
                         size = excluded.size,
+                        embeddedSourceURL = excluded.embeddedSourceURL,
+                        sourceSignature = excluded.sourceSignature,
+                        sourceIdentity = excluded.sourceIdentity,
                         thumbnailPath = CASE
-                            WHEN modelProject.modifiedAt = excluded.modifiedAt
+                            WHEN modelProject.modifiedAt IS excluded.modifiedAt AND modelProject.size = excluded.size
                             THEN modelProject.thumbnailPath
                             ELSE NULL
                         END,
@@ -101,7 +138,10 @@ final class DatabaseStore: @unchecked Sendable {
                         scannedProject.createdAt,
                         scannedProject.modifiedAt,
                         now,
-                        scannedProject.size
+                        scannedProject.size,
+                        scannedProject.embeddedSourceURL,
+                        scannedProject.sourceSignature,
+                        scannedProject.sourceIdentity
                     ])
 
                 for file in scannedProject.files {
@@ -109,6 +149,9 @@ final class DatabaseStore: @unchecked Sendable {
                         INSERT INTO modelFile (
                             projectID, path, filename, extension, size, createdAt, modifiedAt
                         ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(projectID, path) DO UPDATE SET filename = excluded.filename,
+                            extension = excluded.extension, size = excluded.size,
+                            createdAt = excluded.createdAt, modifiedAt = excluded.modifiedAt
                         """, arguments: [
                             projectID,
                             file.path,
@@ -121,9 +164,15 @@ final class DatabaseStore: @unchecked Sendable {
                 }
             }
 
+            for row in existingRows where !seenIDs.contains(row["id"] as String) && !(row["missing"] as Bool) && !result.deferredGroups.contains(row["groupKey"] as String) {
+                let path: String = row["directoryPath"]
+                guard result.scopePaths == nil || result.scopePaths!.contains(where: { path == $0 || path.hasPrefix($0 + "/") }) else { continue }
+                try db.execute(sql: "UPDATE modelProject SET missing = 1 WHERE id = ?", arguments: [row["id"] as String])
+            }
+
             try db.execute(
-                sql: "UPDATE library SET lastScanAt = ? WHERE id = ?",
-                arguments: [now, libraryID]
+                sql: "UPDATE library SET lastScanAt = ?, lastOpenedAt = ? WHERE id = ?",
+                arguments: [now, now, libraryID]
             )
             return LibraryLocation(
                 id: libraryID,
@@ -134,25 +183,34 @@ final class DatabaseStore: @unchecked Sendable {
         }
     }
 
-    func projects(libraryID: Int64) throws -> [ModelProject] {
+    func projects(rootURL: URL) throws -> [ModelProject] {
+        let path = rootURL.resolvingSymlinksInPath().standardizedFileURL.path
+        let libraryID = try databaseQueue.read { db in
+            try Int64.fetchOne(db, sql: "SELECT id FROM library WHERE rootPath = ?", arguments: [path])
+        }
+        guard let libraryID else { return [] }
+        return try projects(libraryID: libraryID, includeMissing: true)
+    }
+
+    func projects(libraryID: Int64, includeMissing: Bool = false) throws -> [ModelProject] {
         try databaseQueue.read { db in
             let projectRows = try Row.fetchAll(db, sql: """
                 SELECT id, name, directoryPath, createdAt, modifiedAt, importedAt, size,
                        favorite, note, customName, author, sourceURL, license,
-                       modelDescription, coverOverridePath, thumbnailPath
+                       modelDescription, coverOverridePath, thumbnailPath, embeddedSourceURL, sourceSignature, sourceIdentity
                 FROM modelProject
-                WHERE libraryID = ? AND missing = 0
+                WHERE libraryID = ? AND (missing = 0 OR ?)
                 ORDER BY COALESCE(NULLIF(customName, ''), name) COLLATE NOCASE
-                """, arguments: [libraryID])
+                """, arguments: [libraryID, includeMissing])
 
             let fileRows = try Row.fetchAll(db, sql: """
                 SELECT f.id, f.projectID, f.path, f.filename, f.extension,
                        f.size, f.createdAt, f.modifiedAt
                 FROM modelFile f
                 JOIN modelProject p ON p.id = f.projectID
-                WHERE p.libraryID = ? AND p.missing = 0
+                WHERE p.libraryID = ? AND (p.missing = 0 OR ?)
                 ORDER BY f.projectID, f.filename COLLATE NOCASE
-                """, arguments: [libraryID])
+                """, arguments: [libraryID, includeMissing])
 
             let tagRows = try Row.fetchAll(db, sql: """
                 SELECT mt.projectID, t.name
@@ -204,7 +262,10 @@ final class DatabaseStore: @unchecked Sendable {
                     coverOverridePath: row["coverOverridePath"],
                     thumbnailPath: row["thumbnailPath"],
                     files: filesByProject[id] ?? [],
-                    tags: tagsByProject[id] ?? []
+                    tags: tagsByProject[id] ?? [],
+                    embeddedSourceURL: row["embeddedSourceURL"],
+                    sourceSignature: row["sourceSignature"],
+                    sourceIdentity: row["sourceIdentity"]
                 )
             }
         }
@@ -273,7 +334,7 @@ final class DatabaseStore: @unchecked Sendable {
                 sql: "SELECT EXISTS(SELECT 1 FROM tag WHERE name = ? COLLATE NOCASE)",
                 arguments: [normalized]
             ) ?? false
-            guard !exists else { throw DatabaseError(message: "A tag with this name already exists.") }
+            guard !exists else { throw DatabaseError(message: L10n.text("A tag with this name already exists.")) }
             try db.execute(sql: """
                 INSERT INTO tag (name, sortOrder)
                 VALUES (?, (SELECT COALESCE(MAX(sortOrder), -1) + 1 FROM tag))
@@ -291,7 +352,7 @@ final class DatabaseStore: @unchecked Sendable {
                     WHERE name = ? COLLATE NOCASE AND name != ? COLLATE NOCASE
                 )
                 """, arguments: [normalized, oldName]) ?? false
-            guard !conflict else { throw DatabaseError(message: "A tag with this name already exists.") }
+            guard !conflict else { throw DatabaseError(message: L10n.text("A tag with this name already exists.")) }
             try db.execute(
                 sql: "UPDATE tag SET name = ? WHERE name = ? COLLATE NOCASE",
                 arguments: [normalized, oldName]
@@ -306,7 +367,7 @@ final class DatabaseStore: @unchecked Sendable {
                 db,
                 sql: "SELECT id FROM tag WHERE name = ? COLLATE NOCASE",
                 arguments: [name]
-            ) else { throw DatabaseError(message: "Tag not found: \(name)") }
+            ) else { throw DatabaseError(message: L10n.format("Tag not found: %@", name)) }
 
             for projectID in projectIDs {
                 if assigned {
@@ -390,6 +451,56 @@ final class DatabaseStore: @unchecked Sendable {
                     sql: "UPDATE modelProject SET missing = ? WHERE id = ?",
                     arguments: [missing, projectID]
                 )
+            }
+        }
+    }
+
+    func recordTransfer(_ plan: ProjectTransfer, copy: Bool, root: URL) throws {
+        try databaseQueue.write { db in
+            guard let original = try Row.fetchOne(db, sql: "SELECT * FROM modelProject WHERE id = ?", arguments: [plan.project.id]) else {
+                throw DatabaseError(message: L10n.text("The source project is no longer in the library."))
+            }
+            let directory = plan.directory.path
+            let rootPath = root.resolvingSymlinksInPath().standardizedFileURL.path
+            let relative = directory == rootPath ? "." : directory.hasPrefix(rootPath + "/")
+                ? String(directory.dropFirst(rootPath.count + 1)) : directory
+            guard let model = plan.files.first(where: { ["3mf", "stl", "step", "stp", "obj", "f3d", "iges", "igs"].contains($0.destination.pathExtension.lowercased()) }) else { return }
+            let name = model.destination.deletingPathExtension().lastPathComponent
+            let key = relative.lowercased() + "::" + name.precomposedStringWithCanonicalMapping.lowercased()
+            let libraryID: Int64 = original["libraryID"]
+            let id = copy ? UUID().uuidString : plan.project.id
+            if let other = try Row.fetchOne(db, sql: "SELECT id, missing FROM modelProject WHERE libraryID = ? AND groupKey = ? AND id != ?",
+                                           arguments: [libraryID, key, id]) {
+                let missing: Bool = other["missing"]
+                guard missing else { throw DatabaseError(message: L10n.text("Another project already occupies the target location.")) }
+                let otherID: String = other["id"]
+                try db.execute(sql: "UPDATE modelProject SET groupKey = ? WHERE id = ?", arguments: ["missing::" + otherID, otherID])
+                try db.execute(sql: "DELETE FROM modelFile WHERE projectID = ?", arguments: [otherID])
+            }
+            if copy {
+                try db.execute(sql: """
+                    INSERT INTO modelProject (id, libraryID, groupKey, name, directoryPath, createdAt, modifiedAt, importedAt,
+                        size, favorite, note, customName, author, sourceURL, license, modelDescription, coverOverridePath, thumbnailPath, embeddedSourceURL, sourceIdentity, missing)
+                    SELECT ?, libraryID, ?, ?, ?, createdAt, modifiedAt, ?, size, favorite, note, customName, author,
+                        sourceURL, license, modelDescription, coverOverridePath, thumbnailPath, embeddedSourceURL, sourceIdentity, 0
+                    FROM modelProject WHERE id = ?
+                    """, arguments: [id, key, name, directory, Date(), plan.project.id])
+                try db.execute(sql: "INSERT INTO modelTag (projectID, tagID) SELECT ?, tagID FROM modelTag WHERE projectID = ?",
+                               arguments: [id, plan.project.id])
+            } else {
+                try db.execute(sql: "UPDATE modelProject SET groupKey = ?, name = ?, directoryPath = ? WHERE id = ?",
+                               arguments: [key, name, directory, id])
+                try db.execute(sql: "DELETE FROM modelFile WHERE projectID = ?", arguments: [id])
+            }
+            for file in plan.files {
+                guard let source = plan.project.files.first(where: { $0.path == file.source.path }) else { continue }
+                try db.execute(sql: """
+                    INSERT INTO modelFile (projectID, path, filename, extension, size, createdAt, modifiedAt)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """, arguments: [id, file.destination.path, file.destination.lastPathComponent, source.fileExtension, source.size, source.createdAt, source.modifiedAt])
+                if plan.project.coverOverridePath == file.source.path {
+                    try db.execute(sql: "UPDATE modelProject SET coverOverridePath = ? WHERE id = ?", arguments: [file.destination.path, id])
+                }
             }
         }
     }
@@ -543,6 +654,40 @@ final class DatabaseStore: @unchecked Sendable {
                     )
                 }
             }
+        }
+        migrator.registerMigration("v5-source-groups") { db in
+            try db.alter(table: "modelProject") { table in
+                table.add(column: "embeddedSourceURL", .text)
+            }
+        }
+        migrator.registerMigration("v6-library-management") { db in
+            try db.alter(table: "library") { table in
+                table.add(column: "removed", .boolean).notNull().defaults(to: false)
+                table.add(column: "lastOpenedAt", .datetime)
+            }
+            // The same file may belong to overlapping libraries; each project owns its index.
+            try db.execute(sql: """
+                CREATE TABLE modelFileNew (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    projectID TEXT NOT NULL REFERENCES modelProject(id) ON DELETE CASCADE,
+                    path TEXT NOT NULL, filename TEXT NOT NULL, extension TEXT NOT NULL,
+                    size INTEGER NOT NULL DEFAULT 0, createdAt DATETIME, modifiedAt DATETIME,
+                    UNIQUE(projectID, path)
+                );
+                INSERT INTO modelFileNew SELECT * FROM modelFile;
+                DROP TABLE modelFile;
+                ALTER TABLE modelFileNew RENAME TO modelFile;
+                CREATE INDEX modelFile_project ON modelFile(projectID);
+                """)
+        }
+        migrator.registerMigration("v11_sourceResolution") { db in
+            try db.alter(table: "modelProject") { $0.add(column: "sourceSignature", .text).notNull().defaults(to: "") }
+            // Invalidate derived sources once; manually saved URLs remain untouched.
+            try db.execute(sql: "UPDATE modelProject SET embeddedSourceURL = NULL")
+        }
+        migrator.registerMigration("v12_internalSourceIdentity") { db in
+            try db.alter(table: "modelProject") { $0.add(column: "sourceIdentity", .text).notNull().defaults(to: "") }
+            try db.execute(sql: "UPDATE modelProject SET embeddedSourceURL = NULL, sourceSignature = ''")
         }
         try migrator.migrate(databaseQueue)
     }

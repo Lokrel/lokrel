@@ -41,10 +41,9 @@ func metadataURLs(in value: String) -> [String] {
 }
 
 func makerWorldModelURL(from value: String) -> String? {
-    let decoded = decodeHTMLEntitiesRepeatedly(value)
-    guard let match = matches(pattern: #"\d{3,}"#, in: decoded).first,
-          let range = Range(match.range, in: decoded) else { return nil }
-    return "https://makerworld.com/en/models/\(decoded[range])"
+    let id = decodeHTMLEntitiesRepeatedly(value).trimmingCharacters(in: .whitespacesAndNewlines)
+    guard id.range(of: #"^[0-9]+$"#, options: .regularExpression) != nil else { return nil }
+    return "https://makerworld.com/en/models/\(id)"
 }
 
 func isUsefulSourceURL(_ value: String) -> Bool {

@@ -50,7 +50,7 @@ actor ThumbnailService {
         let safeExtension = ["png", "jpg", "jpeg"].contains(entryExtension)
             ? entryExtension : "png"
         let values = try? sourceURL.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
-        let stamp = Int(values?.contentModificationDate?.timeIntervalSince1970 ?? 0)
+        let stamp = Int64(((values?.contentModificationDate?.timeIntervalSince1970 ?? 0) * 1000).rounded())
         let size = values?.fileSize ?? 0
         let destination = cacheFolder
             .appendingPathComponent("\(projectID)-\(stamp)-\(size)")

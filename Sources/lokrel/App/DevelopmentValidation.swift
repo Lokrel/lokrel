@@ -3,7 +3,10 @@ import Foundation
 import ZIPFoundation
 
 enum DevelopmentValidation {
-    static func run() throws {
+    @MainActor static func run() throws {
+        try UpgradeValidation.run()
+        try RoundTwoValidation.run()
+        try RoundThreeValidation.run()
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("lokrelValidation-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)

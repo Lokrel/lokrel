@@ -4,6 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "lokrel",
+    defaultLocalization: "en",
     platforms: [
         .macOS(.v14)
     ],
@@ -27,6 +28,7 @@ let package = Package(
                 "Sparkle",
                 "ZIPFoundation"
             ],
+            resources: [.process("Resources")],
             swiftSettings: [
                 .swiftLanguageMode(.v5)
             ],

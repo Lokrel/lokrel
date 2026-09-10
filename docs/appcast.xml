@@ -6,6 +6,15 @@
         <description>Stable lokrel releases for macOS.</description>
         <language>en</language>
         <item>
+            <title>1.3.0</title>
+            <pubDate>Thu, 10 Sep 2026 11:30:35 +0800</pubDate>
+            <link>https://github.com/Lokrel/lokrel/releases/latest</link>
+            <sparkle:version>6</sparkle:version>
+            <sparkle:shortVersionString>1.3.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/Lokrel/lokrel/releases/download/v1.3.0/Lokrel-1.3.0-macOS-Universal.dmg" length="8275843" type="application/octet-stream" sparkle:edSignature="+5FPJDR8K7UgBH/Kj49Z0oqkDNvwXFpFTgPp8NDWYcjZeMFbOpwJMpDAV9FpjqrX0cnmYiqn9eOMePN3fY1iBA=="/>
+        </item>
+        <item>
             <title>1.2.0</title>
             <pubDate>Tue, 14 Jul 2026 22:00:20 +0800</pubDate>
             <link>https://github.com/Lokrel/lokrel/releases/latest</link>

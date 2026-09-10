@@ -21,6 +21,7 @@ lipo -create "$ARM_BIN" "$INTEL_BIN" -output "$APP/Contents/MacOS/lokrel"
 ditto "$SPARKLE_FRAMEWORK" "$APP/Contents/Frameworks/Sparkle.framework"
 cp "$ROOT/Scripts/Info.plist" "$APP/Contents/Info.plist"
 cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+ditto "$ARM_BIN_DIR/lokrel_lokrel.bundle" "$APP/Contents/Resources/lokrel_lokrel.bundle"
 
 SIGN_IDENTITY="${LOKREL_CODE_SIGN_IDENTITY:-${LOKREL_DEVELOPER_ID_APPLICATION:-}}"
 if [[ -z "$SIGN_IDENTITY" ]]; then

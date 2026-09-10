@@ -5,27 +5,27 @@ struct SidebarView: View {
     @State private var foldersExpanded = true
     @State private var tagsExpanded = true
     @State private var importDateExpanded = false
-    @State private var fileTypesExpanded = false
+    @State private var fileTypesExpanded = true
 
     var body: some View {
         List {
-            Section("Library") {
+            Section(L10n.text("Library")) {
                 SidebarButton(
-                    title: "All Models",
+                    title: L10n.text("All Models"),
                     systemImage: "square.grid.2x2",
                     count: appModel.projects.count,
                     selected: appModel.selectedSection == .all
                 ) { appModel.selectedSection = .all }
 
                 SidebarButton(
-                    title: "Favorites",
+                    title: L10n.text("Favorites"),
                     systemImage: "star",
                     count: appModel.projects.filter(\.favorite).count,
                     selected: appModel.selectedSection == .favorites
                 ) { appModel.selectedSection = .favorites }
 
                 SidebarButton(
-                    title: "Recent",
+                    title: L10n.text("Recent"),
                     systemImage: "clock",
                     selected: appModel.selectedSection == .recent
                 ) { appModel.selectedSection = .recent }
@@ -40,7 +40,7 @@ struct SidebarView: View {
                         }
                     }
                 } header: {
-                    CollapsibleSectionHeader(title: "Folders", isExpanded: $foldersExpanded)
+                    CollapsibleSectionHeader(title: L10n.text("Folders"), isExpanded: $foldersExpanded)
                 }
             }
 
@@ -52,7 +52,7 @@ struct SidebarView: View {
                 }
             } header: {
                 HStack {
-                    CollapsibleSectionHeader(title: "Tags", isExpanded: $tagsExpanded)
+                    CollapsibleSectionHeader(title: L10n.text("Tags"), isExpanded: $tagsExpanded)
                     Spacer()
                     Button {
                         appModel.isShowingTagManager = true
@@ -60,7 +60,7 @@ struct SidebarView: View {
                         Image(systemName: "slider.horizontal.3")
                     }
                     .buttonStyle(.plain)
-                    .help("Manage Tags")
+                    .help(L10n.text("Manage Tags"))
                 }
             }
 
@@ -73,10 +73,10 @@ struct SidebarView: View {
             } header: {
                 HStack {
                     Text(appModel.activeFilterCount == 0
-                         ? "Filters"
-                         : "Filters (\(appModel.activeFilterCount))")
+                         ? L10n.text("Filters")
+                         : L10n.format("Filters (%ld)", appModel.activeFilterCount))
                     Spacer()
-                    Button("Clear") { appModel.clearFilters() }
+                    Button(L10n.text("Clear")) { appModel.clearFilters() }
                         .buttonStyle(.plain)
                         .disabled(appModel.activeFilterCount == 0)
                 }
@@ -93,14 +93,25 @@ struct SidebarView: View {
                     Text(appModel.scanMessage)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
-                    Button("Rescan Library") { appModel.rescan() }
+                    Button(L10n.text("Refresh Library")) { appModel.refreshLibrary() }
+                    Button(L10n.text("Rescan Library")) { appModel.rescan() }
                         .buttonStyle(.borderless)
                         .disabled(appModel.isScanning)
                 }
-                Button(appModel.library == nil ? "Create Library" : "Change Library") {
-                    appModel.chooseLibrary()
+                Menu(appModel.library == nil ? L10n.text("Libraries") : L10n.text("Change Library")) {
+                    ForEach(appModel.libraries) { library in
+                        Button {
+                            appModel.openLibrary(URL(fileURLWithPath: library.rootPath))
+                        } label: {
+                            Text("\(library.name)\n\(library.rootPath)")
+                        }
+                    }
+                    Divider()
+                    Button(L10n.text("Add Library…")) { appModel.chooseLibrary() }
+                    Button(L10n.text("Manage Libraries…")) { appModel.isShowingLibraryManager = true }
                 }
-                .buttonStyle(.borderless)
+                .menuStyle(.borderlessButton)
+                .disabled(appModel.isScanning || appModel.isTransferring)
             }
             .padding(12)
             .background(.bar)
@@ -134,7 +145,7 @@ private struct SidebarFilters: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Tags")
+            Text(L10n.text("Tags"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 7) {
@@ -145,17 +156,17 @@ private struct SidebarFilters: View {
                     ))
                     .toggleStyle(.checkbox)
                 }
-                Toggle("Untagged", isOn: Binding(
+                Toggle(L10n.text("Untagged"), isOn: Binding(
                     get: { appModel.filterUntagged },
                     set: { appModel.setFilterUntagged($0) }
                 ))
                 .toggleStyle(.checkbox)
-                Toggle("Match All", isOn: $appModel.matchAllFilterTags)
+                Toggle(L10n.text("Match All"), isOn: $appModel.matchAllFilterTags)
                     .toggleStyle(.checkbox)
                     .disabled(appModel.filterTags.count < 2 || appModel.filterUntagged)
             }
 
-            DisclosureGroup("Imported", isExpanded: $importDateExpanded) {
+            DisclosureGroup(L10n.text("Imported"), isExpanded: $importDateExpanded) {
                 VStack(alignment: .leading, spacing: 7) {
                     ForEach(ImportDateFilter.allCases) { option in
                         FilterChoiceRow(
@@ -167,8 +178,9 @@ private struct SidebarFilters: View {
                 .padding(.top, 7)
             }
 
-            DisclosureGroup("File Types", isExpanded: $fileTypesExpanded) {
-                VStack(alignment: .leading, spacing: 7) {
+            VStack(alignment: .leading, spacing: 7) {
+                CollapsibleSectionHeader(title: L10n.text("File Types"), isExpanded: $fileTypesExpanded)
+                if fileTypesExpanded {
                     ForEach(appModel.availableFileTypes, id: \.self) { fileType in
                         Toggle(fileType.uppercased(), isOn: Binding(
                             get: { appModel.filterFileTypes.contains(fileType) },
@@ -177,10 +189,9 @@ private struct SidebarFilters: View {
                         .toggleStyle(.checkbox)
                     }
                 }
-                .padding(.top, 7)
             }
 
-            Toggle("Favorites Only", isOn: $appModel.favoritesOnly)
+            Toggle(L10n.text("Favorites Only"), isOn: $appModel.favoritesOnly)
                 .toggleStyle(.checkbox)
         }
         .padding(.vertical, 3)
@@ -219,7 +230,7 @@ private struct TagSidebarRow: View {
         .dropDestination(for: String.self) { payloads, _ in
             appModel.assignTagFromDrop(tag, payloads: payloads)
         }
-        .help("Drop selected models here to add this tag")
+        .help(L10n.text("Drop selected models here to add this tag"))
     }
 }
 
@@ -247,7 +258,7 @@ private struct DirectoryRow: View {
         .buttonStyle(.plain)
         .listRowBackground(isSelected ? Color.accentColor.opacity(0.18) : Color.clear)
         .contextMenu {
-            Button("Show in Finder") { appModel.revealDirectory(path: node.path) }
+            Button(L10n.text("Show in Finder")) { appModel.revealDirectory(path: node.path) }
         }
     }
 

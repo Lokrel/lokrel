@@ -10,13 +10,13 @@ struct TagManagerView: View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Manage Tags").font(.title2.bold())
-                    Text("Tag order defines shortcuts 1–9.")
+                    Text(L10n.text("Manage Tags")).font(.title2.bold())
+                    Text(L10n.text("Tag order defines shortcuts 1–9."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("Done") { dismiss() }
+                Button(L10n.text("Done")) { dismiss() }
                     .keyboardShortcut(.defaultAction)
             }
             .padding(18)
@@ -40,30 +40,30 @@ struct TagManagerView: View {
             Divider()
 
             HStack {
-                TextField("New tag", text: $newTag)
+                TextField(L10n.text("New tag"), text: $newTag)
                     .textFieldStyle(.roundedBorder)
                     .onSubmit(addTag)
-                Button("Add") { addTag() }
+                Button(L10n.text("Add")) { addTag() }
                     .disabled(newTag.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             .padding(18)
         }
         .frame(width: 470, height: 480)
         .confirmationDialog(
-            "Delete Tag?",
+            L10n.text("Delete Tag?"),
             isPresented: Binding(
                 get: { tagPendingDeletion != nil },
                 set: { if !$0 { tagPendingDeletion = nil } }
             ),
             titleVisibility: .visible
         ) {
-            Button("Delete Tag", role: .destructive) {
+            Button(L10n.text("Delete Tag"), role: .destructive) {
                 if let tagPendingDeletion { appModel.deleteTag(tagPendingDeletion) }
                 tagPendingDeletion = nil
             }
-            Button("Cancel", role: .cancel) { tagPendingDeletion = nil }
+            Button(L10n.text("Cancel"), role: .cancel) { tagPendingDeletion = nil }
         } message: {
-            Text("This tag will be removed from every model. You can undo this with Command-Z.")
+            Text(L10n.text("This tag will be removed from every model. You can undo this with Command-Z."))
         }
     }
 
@@ -105,7 +105,7 @@ private struct TagManagerRow: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 22)
 
-            TextField("Tag name", text: $editedName)
+            TextField(L10n.text("Tag name"), text: $editedName)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(saveName)
 
@@ -114,24 +114,24 @@ private struct TagManagerRow: View {
             }
             .disabled(editedName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                       || editedName == tag)
-            .help("Save Name")
+            .help(L10n.text("Save Name"))
 
             Button { appModel.moveTag(tag, offset: -1) } label: {
                 Image(systemName: "arrow.up")
             }
             .disabled(!canMoveUp)
-            .help("Move Up")
+            .help(L10n.text("Move Up"))
 
             Button { appModel.moveTag(tag, offset: 1) } label: {
                 Image(systemName: "arrow.down")
             }
             .disabled(!canMoveDown)
-            .help("Move Down")
+            .help(L10n.text("Move Down"))
 
             Button(role: .destructive, action: onDelete) {
                 Image(systemName: "trash")
             }
-            .help("Delete Tag")
+            .help(L10n.text("Delete Tag"))
         }
         .buttonStyle(.borderless)
         .padding(.vertical, 3)
